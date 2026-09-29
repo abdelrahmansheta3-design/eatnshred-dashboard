@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EAT N' SHRED dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root{
+  --orange:#FF8C00; --orange-mark:#E07800; --orange-ink:#A85A00; --orange-tint:#FFF3E3; --orange-deep:#4A3000;
+  --green:#2E9B6D; --green-btn:#1F7A55; --green-ink:#1F6E4D; --green-tint:#E8F5EF;
+  --red:#D92D20; --red-ink:#B42318; --red-tint:#FDECEA; --red-deep:#8A1C13;
+  --ink:#1E2A24; --text:#5A5A5A; --muted:#6B6B6B; --line:#ECECEC; --line-strong:#D4D4D4;
+  --bg:#F5F5F5; --card:#FFFFFF;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;-webkit-font-smoothing:antialiased}
+h1,h2,.num{font-family:'Montserrat',system-ui,sans-serif;color:var(--ink)}
+button{font-family:inherit;cursor:pointer}
+a{color:var(--green-ink)}
+.app{display:flex;min-height:100vh}
+
+/* sidebar */
+.side{width:240px;flex-shrink:0;background:var(--card);border-right:1px solid var(--line);padding:32px 20px;display:flex;flex-direction:column;gap:36px;position:sticky;top:0;height:100vh}
+.logo{font-family:'Montserrat',sans-serif;font-weight:700;font-size:21px;letter-spacing:.02em}
+.logo .e{color:var(--orange)} .logo .s{color:var(--green)}
+.logo-bar{width:36px;height:3px;background:var(--orange);border-radius:2px;margin-top:8px}
+.logo-sub{font-size:12px;color:var(--muted);margin-top:8px}
+.nav{display:flex;flex-direction:column;gap:4px}
+.nav a{display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;color:var(--text);font-size:14px;font-weight:500;text-decoration:none}
+.nav a:hover{background:var(--bg)}
+.nav a.on{background:var(--green-tint);color:var(--green-ink);font-weight:600}
+.src{margin-top:auto;background:var(--bg);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:6px}
+.src .k{font-size:12px;color:var(--muted)} .src .v{font-size:14px;font-weight:600;color:var(--ink);word-break:break-word}
+.badge{align-self:flex-start;font-size:11px;font-weight:600;color:var(--orange-ink);background:var(--orange-tint);padding:3px 8px;border-radius:6px}
+
+/* main */
+main{flex-grow:1;min-width:0;padding:36px 40px 48px;display:flex;flex-direction:column;gap:24px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.top .when{font-size:13px;color:var(--muted)}
+.top h1{margin:6px 0 0;font-size:28px;font-weight:700}
+.controls{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.seg{display:flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{border:0;background:transparent;font-size:13px;color:var(--text);padding:8px 14px;border-radius:8px}
+.seg button[aria-pressed="true"]{background:var(--ink);color:#fff;font-weight:600}
+select.plat{appearance:none;-webkit-appearance:none;border:1px solid var(--line);background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%231E2A24' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 12px center;font:inherit;font-size:13px;color:var(--ink);padding:10px 34px 10px 14px;border-radius:10px}
+.btn-primary{display:flex;align-items:center;gap:8px;border:0;background:var(--green-btn);font-size:13px;font-weight:600;color:#fff;padding:11px 16px;border-radius:10px}
+.btn-primary:hover{background:#18664A}
+.btn{border:1px solid var(--line-strong);background:var(--card);font-size:13px;font-weight:500;color:var(--ink);padding:9px 14px;border-radius:9px;white-space:nowrap}
+.btn:hover{background:var(--bg)}
+.insight{display:flex;align-items:center;gap:14px;background:var(--orange-tint);border-radius:14px;padding:16px 20px;font-size:15px;line-height:1.5;color:var(--orange-deep)}
+.insight .dot{width:34px;height:34px;flex-shrink:0;border-radius:50%;background:var(--orange);display:flex;align-items:center;justify-content:center;color:#fff}
+.insight b{font-weight:600}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:22px 24px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.card-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.card-h h2{margin:0;font-size:17px;font-weight:700}
+.card-h span{font-size:12px;color:var(--muted)}
+
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 18px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.kpi .row{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.kpi .lab{font-size:13px;color:var(--muted)}
+.kpi .val{font-size:30px;font-weight:700;line-height:1.15}
+.kpi .val small{font-size:16px;font-weight:600;color:var(--muted)}
+.kpi .sub{font-size:12px;color:var(--muted)}
+.kpi svg{display:block}
+.share{display:flex;height:8px;border-radius:4px;overflow:hidden;margin:14px 0 12px;background:var(--line)}
+.pill{font-size:12px;font-weight:600;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.pill.up{color:var(--green-ink);background:var(--green-tint)}
+.pill.down{color:var(--red-ink);background:var(--red-tint)}
+.pill.flat{color:var(--muted);background:var(--bg)}
+
+.grid-2{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:16px}
+
+.hero{display:flex;gap:16px;align-items:center;background:var(--green-tint);border-radius:14px;padding:16px}
+.hero .ic{width:72px;height:72px;flex-shrink:0;border-radius:12px;background:#fff;display:flex;align-items:center;justify-content:center;color:var(--green)}
+.hero .rk{font-size:12px;font-weight:600;color:var(--green-ink)}
+.hero .nm{font-family:'Montserrat',sans-serif;font-size:20px;font-weight:700;color:var(--ink);margin:4px 0}
+.hero .mt{font-size:13px;color:var(--green-ink)}
+.toplist{display:flex;flex-direction:column;gap:14px}
+.ti{display:grid;grid-template-columns:22px minmax(0,1fr) 44px;gap:12px;align-items:center}
+.ti .n{font-size:13px;color:var(--muted)}
+.ti .nm{font-size:14px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ti .bar{height:6px;background:var(--bg);border-radius:3px;margin-top:6px}
+.ti .bar i{display:block;height:6px;background:var(--green);border-radius:3px}
+.ti .q{font-size:14px;font-weight:600;color:var(--ink);text-align:right}
+
+.ftable{display:flex;flex-direction:column}
+.fr{display:grid;grid-template-columns:minmax(0,2.2fr) 76px 76px 72px minmax(0,2.4fr);gap:12px;align-items:center;font-size:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.fr:last-child{border-bottom:0}
+.fr.head{font-size:12px;color:var(--muted);padding:8px 0}
+.fr .nm{color:var(--ink);font-weight:500}
+.fr .r{text-align:right}
+.fr .chg{text-align:right;font-weight:600;color:var(--red-ink)}
+.act{font-size:13px;color:var(--orange-ink);background:var(--orange-tint);padding:6px 10px;border-radius:8px}
+.fr .mob{display:none}
+
+.legend{display:flex;gap:18px;font-size:12px;color:var(--text)}
+.legend span{display:flex;align-items:center;gap:6px}
+.sw{width:10px;height:10px;border-radius:3px;display:inline-block}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.stat{background:var(--bg);border-radius:12px;padding:14px}
+.stat .num{font-size:22px;font-weight:700}
+.stat .l{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.4}
+.stat.bad{background:var(--red-tint)} .stat.bad .num{color:var(--red-ink)} .stat.bad .l{color:var(--red-deep)}
+
+.sg-group{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.sg-group.g{color:var(--green-ink)} .sg-group.o{color:var(--orange-ink);margin-top:4px}
+.sg{display:flex;gap:14px;align-items:flex-start;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.sg:last-child{border-bottom:0;padding-bottom:0}
+.sg .no{width:30px;height:30px;flex-shrink:0;border-radius:50%;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.sg .no.g{background:var(--green-tint);color:var(--green-ink)} .sg .no.o{background:var(--orange-tint);color:var(--orange-ink)}
+.sg .tx{flex-grow:1;display:flex;flex-direction:column;gap:4px;min-width:0}
+.sg .t{font-size:15px;font-weight:600;color:var(--ink)}
+.sg .b{font-size:13px;line-height:1.5}
+
+.empty{display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;padding:64px 24px}
+.empty h2{margin:0;font-size:22px}
+.empty p{margin:0;max-width:520px;line-height:1.6}
+.empty .actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.note{font-size:13px;line-height:1.6;background:var(--bg);border-radius:12px;padding:14px 16px}
+.warn{font-size:13px;line-height:1.6;background:var(--orange-tint);color:var(--orange-deep);border-radius:12px;padding:12px 16px}
+
+.map{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px 16px}
+.map label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted)}
+.map select{font:inherit;font-size:13px;color:var(--ink);padding:9px 10px;border:1px solid var(--line-strong);border-radius:8px;background:#fff}
+.files{display:flex;flex-direction:column;gap:6px;font-size:13px}
+
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:#fff;font-size:12px;line-height:1.5;padding:8px 10px;border-radius:8px;opacity:0;transition:opacity .1s;z-index:30;max-width:220px}
+.tip b{font-weight:600}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;padding:10px 16px;border-radius:10px;opacity:0;transition:opacity .2s;z-index:40;pointer-events:none}
+.drop{position:fixed;inset:0;background:rgba(30,42,36,.55);display:none;align-items:center;justify-content:center;z-index:50}
+.drop.on{display:flex}
+.drop div{background:#fff;border-radius:18px;padding:40px 56px;font-family:'Montserrat',sans-serif;font-weight:700;font-size:20px;color:var(--ink);border:2px dashed var(--green)}
+.hidden{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.foot{font-size:12px;color:var(--muted);text-align:center}
+
+@media (max-width:1180px){
+  .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .grid-2{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:820px){
+  .app{flex-direction:column}
+  .side{position:static;width:auto;height:auto;flex-direction:row;align-items:center;justify-content:space-between;padding:16px;gap:12px;border-right:0;border-bottom:1px solid var(--line)}
+  .logo{font-size:18px} .logo-bar,.logo-sub,.nav{display:none}
+  .src{margin:0;padding:8px 12px;background:transparent;align-items:flex-end;gap:2px}
+  .src .k,.src .badge{display:none} .src .v{font-size:12px;font-weight:500;color:var(--muted);text-align:right}
+  main{padding:20px 16px 32px;gap:16px}
+  .top h1{font-size:22px}
+  .controls{width:100%}
+  .seg{flex-grow:1} .seg button{flex-grow:1;padding:10px 0}
+  select.plat{flex-grow:1}
+  .btn-primary{flex-grow:1;justify-content:center;padding:12px}
+  .insight{font-size:14px;padding:14px 16px}
+  .insight .dot{display:none}
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .kpi{padding:14px;border-radius:14px}
+  .kpi .val{font-size:24px}
+  .kpi svg,.kpi .share{display:none}
+  .kpis .kpi:nth-child(5){grid-column:1 / -1}
+  .card{padding:18px 16px}
+  .hero .ic{display:none}
+  .fr.head{display:none}
+  .fr{grid-template-columns:minmax(0,1fr) auto;gap:8px 12px}
+  .fr .r{display:none}
+  .fr .mob{display:block;grid-column:1 / -1;font-size:12px;color:var(--muted);margin-top:-4px}
+  .fr .act{grid-column:1 / -1}
+  .stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .stats .stat:nth-child(2){display:none}
+  .sg{flex-wrap:wrap}
+  .sg .no{display:none}
+  .sg .btn{min-height:44px}
+  .map{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div>
+      <div class="logo"><span class="e">EAT</span><span class="s"> N' SHRED</span></div>
+      <div class="logo-bar"></div>
+      <div class="logo-sub">Sales and customers</div>
+    </div>
+    <nav class="nav" aria-label="Dashboard sections">
+      <a href="#overview" class="on"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Overview</a>
+      <a href="#menu"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M9 7c0-1.5 1-2.5 2-3M13 7c0-1.5 1-2.5 2-3"/></svg>Menu</a>
+      <a href="#customers"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14.5c2.2.6 3.5 2.6 3.5 5.5"/></svg>Customers</a>
+      <a href="#suggestions"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg>Suggestions</a>
+      <a href="#uploads"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Uploads</a>
+    </nav>
+    <div class="src">
+      <div class="k">Data source</div>
+      <div class="v" id="srcName">No data yet</div>
+      <div class="k" id="srcDate"></div>
+      <div class="badge hidden" id="srcSample">Sample data</div>
+    </div>
+  </aside>
+
+  <main>
+    <header class="top" id="overview">
+      <div>
+        <div class="when" id="when">Upload an export to begin</div>
+        <h1 id="hello">Good morning</h1>
+      </div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="Period">
+          <button type="button" data-p="day" aria-pressed="false">Today</button>
+          <button type="button" data-p="week" aria-pressed="true">This week</button>
+          <button type="button" data-p="month" aria-pressed="false">This month</button>
+        </div>
+        <label class="sr" for="plat">Platform</label>
+        <select class="plat" id="plat"><option value="">All platforms</option></select>
+        <button type="button" class="btn-primary" id="uploadBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg>Upload export</button>
+        <input type="file" id="file" class="hidden" accept=".csv,.xlsx,.xls" multiple>
+      </div>
+    </header>
+
+    <section class="card empty" id="empty">
+      <h2>Upload your first export</h2>
+      <p>Export orders from Grubtech (or Talabat, Deliveroo, Careem) as Excel or CSV, then drop the file here. Three months of orders with a customer phone or ID column gives you the full picture. Your file stays in this browser and is never uploaded anywhere.</p>
+      <div class="actions">
+        <button type="button" class="btn-primary" id="emptyUpload">Choose file</button>
+        <button type="button" class="btn" id="sampleBtn">Try with sample data</button>
+      </div>
+    </section>
+
+    <div id="dash" class="hidden" style="display:flex;flex-direction:column;gap:24px">
+      <div class="insight"><div class="dot"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3z"/></svg></div><div id="insight"></div></div>
+
+      <section class="kpis" id="kpis" aria-label="Key numbers"></section>
+      <div class="warn hidden" id="noCust">Your file has no customer column (phone or customer ID), so new and returning customers can't be counted. Pick one under Uploads if it's there, or export again with customer details.</div>
+
+      <section class="grid-2" id="menu">
+        <div class="card" id="topCard"></div>
+        <div class="card" id="fallCard"></div>
+      </section>
+
+      <section class="grid-2">
+        <div class="card" id="customers"></div>
+        <div class="card" id="suggestions"></div>
+      </section>
+    </div>
+
+    <section class="card" id="uploads">
+      <div class="card-h"><h2>Uploads</h2><span>Files stay on this device</span></div>
+      <div class="files" id="files"><div>No file loaded yet.</div></div>
+      <div id="mapWrap" class="hidden" style="display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:13px">These are the columns found in your file. Fix any that are wrong, then apply.</div>
+        <div class="map" id="map"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn-primary" id="applyMap">Apply columns</button><button type="button" class="btn" id="clearData">Clear data</button></div>
+      </div>
+      <div style="font-size:13px">Want to see the file format? <a href="#" id="dlSample">Download a sample file</a></div>
+    </section>
+    <div class="foot">EAT N' SHRED · all calculations run in your browser</div>
+  </main>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="drop" id="drop"><div>Drop your export here</div></div>
+
+<script>
+'use strict';
+const CONFIG = { name: 'Abd Elrahman' };
+
+/* ---------- helpers ---------- */
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const nf = new Intl.NumberFormat('en-US');
+const fmt = (n) => nf.format(Math.round(n));
+const DAY = 864e5;
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const DOW = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const diToDate = (di) => new Date(di * DAY);
+const dLabel = (di, year) => { const d = diToDate(di); return d.getUTCDate() + ' ' + MONTHS[d.getUTCMonth()] + (year ? ' ' + d.getUTCFullYear() : ''); };
+const dayIndex = (y, m, d) => Math.floor(Date.UTC(y, m - 1, d) / DAY);
+const pctChange = (cur, prev) => prev > 0 ? (cur - prev) / prev * 100 : (cur > 0 ? null : 0);
+function pill(ch) {
+  if (ch === null || !isFinite(ch)) return '<span class="pill flat">new</span>';
+  const r = Math.round(ch);
+  if (r === 0) return '<span class="pill flat">0%</span>';
+  return r > 0 ? `<span class="pill up">▲ ${r}%</span>` : `<span class="pill down">▼ ${Math.abs(r)}%</span>`;
+}
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.style.opacity = 1; clearTimeout(toast._t); toast._t = setTimeout(() => t.style.opacity = 0, 2200); }
+async function copyText(s) {
+  try { await navigator.clipboard.writeText(s); }
+  catch (e) { const ta = document.createElement('textarea'); ta.value = s; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (_) {} ta.remove(); }
+  toast('Copied');
+}
+function download(name, text) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' }));
+  a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
+}
+const csvCell = (v) => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+const toCSV = (rows) => rows.map((r) => r.map(csvCell).join(',')).join('\n');
+
+/* ---------- column detection ---------- */
+const FIELDS = [
+  { key: 'order', label: 'Order ID', syn: ['order id','order no','order number','order #','order_id','orderid','order ref','reference','order reference','invoice','invoice no','receipt','ticket','check no','bill no','id'] },
+  { key: 'date', label: 'Date', req: true, syn: ['order date','date','created at','created','order time','placed at','order placed','date time','datetime','order datetime','timestamp','business date','order created'] },
+  { key: 'time', label: 'Time (if separate)', syn: ['time','order time only','hour'] },
+  { key: 'customer', label: 'Customer (phone or ID)', syn: ['customer phone','phone','mobile','phone number','customer mobile','customer number','customer id','customer_id','customer','client','customer name','guest','guest phone'] },
+  { key: 'item', label: 'Item', syn: ['item','item name','items','product','product name','dish','menu item','item_name','name','description'] },
+  { key: 'qty', label: 'Quantity', syn: ['qty','quantity','count','units','item qty','item quantity'] },
+  { key: 'amount', label: 'Amount', syn: ['order total','total','amount','net sales','gross sales','sales','total amount','grand total','order amount','value','subtotal','net amount','price','line total','item total'] },
+  { key: 'platform', label: 'Platform', syn: ['channel','platform','source','order source','aggregator','ordering platform','sales channel','order channel','provider'] },
+  { key: 'status', label: 'Status', syn: ['status','order status','state'] },
+];
+const normH = (h) => String(h ?? '').toLowerCase().replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
+function scoreHeader(h, f) {
+  const n = normH(h); if (!n) return 0;
+  let best = 0;
+  f.syn.forEach((s, i) => {
+    const w = 100 - i;
+    if (n === s) best = Math.max(best, 1000 + w);
+    else if (n.includes(s) && s.length > 3) best = Math.max(best, 500 + w);
+  });
+  return best;
+}
+function detect(headers) {
+  const map = {}; const used = new Set();
+  const cand = [];
+  FIELDS.forEach((f) => headers.forEach((h) => { const s = scoreHeader(h, f); if (s) cand.push({ f: f.key, h, s }); }));
+  cand.sort((a, b) => b.s - a.s);
+  cand.forEach((c) => { if (!map[c.f] && !used.has(c.h)) { map[c.f] = c.h; used.add(c.h); } });
+  if (map.time && map.date === map.time) delete map.time;
+  return map;
+}
+
+/* ---------- reading files ---------- */
+function readFile(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    const isCSV = /\.csv$/i.test(file.name) || file.type === 'text/csv';
+    r.onerror = () => rej(new Error('Could not read ' + file.name));
+    r.onload = () => {
+      try {
+        const wb = isCSV ? XLSX.read(r.result, { type: 'string', raw: true }) : XLSX.read(new Uint8Array(r.result), { type: 'array', cellDates: true });
+        res(sheetToRows(wb));
+      } catch (e) { rej(new Error(file.name + ': ' + e.message)); }
+    };
+    isCSV ? r.readAsText(file) : r.readAsArrayBuffer(file);
+  });
+}
+function sheetToRows(wb) {
+  let best = null;
+  wb.SheetNames.forEach((name) => {
+    const aoa = XLSX.utils.sheet_to_json(wb.Sheets[name], { header: 1, raw: true, defval: '' });
+    if (!aoa.length) return;
+    let hi = 0, hs = -1;
+    for (let i = 0; i < Math.min(15, aoa.length); i++) {
+      const hits = aoa[i].reduce((a, c) => a + (FIELDS.some((f) => scoreHeader(c, f)) ? 1 : 0), 0);
+      if (hits > hs) { hs = hits; hi = i; }
+    }
+    const seen = {};
+    const headers = aoa[hi].map((h, i) => { let n = String(h || 'Column ' + (i + 1)).trim(); if (seen[n]) n += ' (' + (++seen[n]) + ')'; else seen[n] = 1; return n; });
+    const rows = aoa.slice(hi + 1).filter((r) => r.some((c) => c !== '' && c !== null)).map((r) => { const o = {}; headers.forEach((h, i) => o[h] = r[i]); return o; });
+    if (!best || hs > best.hs || (hs === best.hs && rows.length > best.rows.length)) best = { headers, rows, hs };
+  });
+  if (!best) throw new Error('No data found');
+  return best;
+}
+
+/* ---------- parsing values ---------- */
+function parseDate(v) {
+  if (v instanceof Date && !isNaN(v)) return { y: v.getFullYear(), m: v.getMonth() + 1, d: v.getDate(), h: v.getHours(), mi: v.getMinutes() };
+  if (typeof v === 'number' && v > 20000 && v < 80000) {
+    const ms = Math.round((v - 25569) * DAY); const d = new Date(ms);
+    return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), h: d.getUTCHours(), mi: d.getUTCMinutes() };
+  }
+  const s = String(v ?? '').trim(); if (!s) return null;
+  let m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})(?:[T ,]+(\d{1,2}):(\d{2})(?::\d{2}(?:\.\d+)?)?\s*(am|pm)?)?/i);
+  if (m) return fix({ y: +m[1], m: +m[2], d: +m[3], h: +(m[4] || 0), mi: +(m[5] || 0) }, m[6]);
+  m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})(?:[T ,]+(\d{1,2}):(\d{2})(?::\d{2})?\s*(am|pm)?)?/i);
+  if (m) {
+    let a = +m[1], b = +m[2], y = +m[3]; if (y < 100) y += 2000;
+    let d = a, mo = b; if (b > 12 && a <= 12) { d = b; mo = a; }
+    return fix({ y, m: mo, d, h: +(m[4] || 0), mi: +(m[5] || 0) }, m[6]);
+  }
+  const t = Date.parse(s);
+  if (!isNaN(t)) { const d = new Date(t); return { y: d.getFullYear(), m: d.getMonth() + 1, d: d.getDate(), h: d.getHours(), mi: d.getMinutes() }; }
+  return null;
+  function fix(o, ap) { if (ap) { ap = ap.toLowerCase(); if (ap === 'pm' && o.h < 12) o.h += 12; if (ap === 'am' && o.h === 12) o.h = 0; } return (o.m >= 1 && o.m <= 12 && o.d >= 1 && o.d <= 31) ? o : null; }
+}
+function parseTime(v) {
+  if (v instanceof Date && !isNaN(v)) return v.getHours();
+  if (typeof v === 'number' && v >= 0 && v < 1) return Math.floor(v * 24);
+  const m = String(v ?? '').match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i); if (!m) return null;
+  let h = +m[1]; const ap = (m[3] || '').toLowerCase();
+  if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0; return h;
+}
+const parseNum = (v) => { if (typeof v === 'number') return v; const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, '')); return isNaN(n) ? null : n; };
+const cleanName = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
+function parseItems(cell, qtyCell) {
+  const s = String(cell ?? '').trim(); if (!s) return [];
+  const multi = /[\n;|]/.test(s) || (/,/.test(s) && /\d\s*[x×*]\s*\S|\S\s*[x×*]\s*\d/i.test(s));
+  const parts = multi ? s.split(/[\n;|,]+/) : [s];
+  const out = [];
+  parts.forEach((p) => {
+    p = p.trim(); if (!p) return;
+    let q = 1, n = p, m;
+    if ((m = p.match(/^(\d+)\s*[x×*]\s*(.+)$/i))) { q = +m[1]; n = m[2]; }
+    else if ((m = p.match(/^(.+?)\s*[x×*]\s*(\d+)$/i))) { n = m[1]; q = +m[2]; }
+    else if ((m = p.match(/^(.+?)\s*\((\d+)\)$/))) { n = m[1]; q = +m[2]; }
+    else if (!multi && qtyCell != null) { const qq = parseNum(qtyCell); if (qq && qq > 0) q = qq; }
+    n = cleanName(n); if (n) out.push({ name: n, qty: q });
+  });
+  return out;
+}
+const platName = (s) => { s = cleanName(s); if (!s) return 'Unknown'; return s.length <= 4 ? s.toUpperCase() : s.replace(/\b\w/g, (c) => c.toUpperCase()); };
+
+/* ---------- building orders ---------- */
+function buildOrders(rows, map) {
+  const groups = new Map(); let skipped = 0, cancelled = 0;
+  rows.forEach((r, i) => {
+    if (map.status && /cancel|reject|fail|void|refund|declin/i.test(String(r[map.status] ?? ''))) { cancelled++; return; }
+    const dt = parseDate(r[map.date]); if (!dt) { skipped++; return; }
+    if (map.time) { const h = parseTime(r[map.time]); if (h !== null) dt.h = h; }
+    const cust = map.customer ? cleanName(r[map.customer]) : '';
+    const oid = map.order ? cleanName(r[map.order]) : '';
+    const key = oid || (cust ? cust + '|' + String(r[map.date]) : 'row' + i);
+    let g = groups.get(key);
+    if (!g) { g = { id: key, di: dayIndex(dt.y, dt.m, dt.d), h: dt.h, cust, plat: map.platform ? platName(r[map.platform]) : '', amounts: [], items: [] }; groups.set(key, g); }
+    if (map.amount) { const a = parseNum(r[map.amount]); if (a !== null) g.amounts.push(a); }
+    if (map.item) g.items.push(...parseItems(r[map.item], map.qty ? r[map.qty] : null));
+  });
+  const orders = [];
+  groups.forEach((g) => {
+    let amt = 0;
+    if (g.amounts.length > 1 && g.amounts.every((a) => a === g.amounts[0])) amt = g.amounts[0];
+    else amt = g.amounts.reduce((a, b) => a + b, 0);
+    const items = {}; g.items.forEach((it) => items[it.name] = (items[it.name] || 0) + it.qty);
+    orders.push({ id: g.id, di: g.di, h: g.h, cust: g.cust, plat: g.plat, amt, items });
+  });
+  orders.sort((a, b) => a.di - b.di || a.h - b.h);
+  return { orders, skipped, cancelled };
+}
+
+/* ---------- state ---------- */
+const S = { period: 'week', plat: '', orders: [], files: [], raw: null, map: null, sample: false, info: null };
+const STORE = 'eatnshred-dashboard-v1';
+function save() {
+  try {
+    const packed = S.orders.map((o) => [o.id, o.di, o.h, o.cust, o.plat, Math.round(o.amt * 100) / 100, Object.entries(o.items)]);
+    const s = JSON.stringify({ v: 1, orders: packed, files: S.files, sample: S.sample, map: S.map, info: S.info });
+    if (s.length < 4.5e6) localStorage.setItem(STORE, s);
+  } catch (e) { /* storage unavailable */ }
+}
+function load() {
+  try {
+    const s = localStorage.getItem(STORE); if (!s) return false;
+    const d = JSON.parse(s); if (d.v !== 1) return false;
+    S.orders = d.orders.map((a) => ({ id: a[0], di: a[1], h: a[2], cust: a[3], plat: a[4], amt: a[5], items: Object.fromEntries(a[6]) }));
+    S.files = d.files || []; S.sample = !!d.sample; S.map = d.map || null; S.info = d.info || null;
+    return S.orders.length > 0;
+  } catch (e) { return false; }
+}
+
+/* ---------- metrics ---------- */
+const PERIODS = {
+  day: { len: 1, n: 14, cmp: 7, label: 'vs same day last week', short: 'Today', unit: 'day' },
+  week: { len: 7, n: 8, cmp: 7, label: 'vs last week', short: 'This week', unit: 'week' },
+  month: { len: 30, n: 6, cmp: 30, label: 'vs previous 30 days', short: 'Last 30 days', unit: 'period' },
+};
+function compute() {
+  const P = PERIODS[S.period];
+  const all = S.orders;
+  const end = all.reduce((m, o) => Math.max(m, o.di), -Infinity);
+  const inPlat = (o) => !S.plat || o.plat === S.plat;
+  const orders = all.filter(inPlat);
+  const hasCust = all.some((o) => o.cust);
+  const hasAmt = all.some((o) => o.amt > 0);
+  const win = (k) => { const hi = end - k * P.cmp; return [hi - P.len + 1, hi]; };
+  const cur = win(0), prev = win(1);
+  const pick = (w) => orders.filter((o) => o.di >= w[0] && o.di <= w[1]);
+
+  const first = new Map(), last = new Map(), count = new Map(), firstItems = new Map();
+  all.forEach((o) => {
+    if (!o.cust) return;
+    if (!first.has(o.cust)) { first.set(o.cust, o.di); firstItems.set(o.cust, o); }
+    last.set(o.cust, o.di); count.set(o.cust, (count.get(o.cust) || 0) + 1);
+  });
+
+  function stats(list, w) {
+    const rev = list.reduce((a, o) => a + o.amt, 0);
+    const per = new Map(); list.forEach((o) => { if (o.cust) per.set(o.cust, (per.get(o.cust) || 0) + 1); });
+    let nw = 0, rt = 0, rep = 0;
+    per.forEach((c, k) => { if (first.get(k) >= w[0]) nw++; else rt++; if (c >= 2) rep++; });
+    return { orders: list.length, rev, aov: list.length ? rev / list.length : 0, cust: per.size, nw, rt, rep };
+  }
+  const C = pick(cur), Pv = pick(prev);
+  const sc = stats(C, cur), sp = stats(Pv, prev);
+
+  const spark = [];
+  for (let i = P.n - 1; i >= 0; i--) { const hi = end - i * P.len, w = [hi - P.len + 1, hi]; spark.push(stats(orders.filter((o) => o.di >= w[0] && o.di <= w[1]), w)); }
+
+  const qty = (list) => { const m = new Map(); list.forEach((o) => Object.entries(o.items).forEach(([n, q]) => m.set(n, (m.get(n) || 0) + q))); return m; };
+  const withItem = (list) => { const m = new Map(); list.forEach((o) => Object.keys(o.items).forEach((n) => m.set(n, (m.get(n) || 0) + 1))); return m; };
+  const qc = qty(C), qp = qty(Pv), oc = withItem(C);
+  const top = [...qc.entries()].sort((a, b) => b[1] - a[1]);
+  const minPrev = S.period === 'day' ? 3 : S.period === 'week' ? 5 : 10;
+  const falling = [...qp.entries()].filter(([n, p]) => p >= minPrev).map(([n, p]) => ({ n, p, c: qc.get(n) || 0 }))
+    .map((x) => ({ ...x, ch: (x.c - x.p) / x.p * 100 })).filter((x) => x.ch <= -10)
+    .sort((a, b) => (b.p - b.c) - (a.p - a.c)).slice(0, 4);
+
+  const weeks = [];
+  for (let i = 7; i >= 0; i--) {
+    const hi = end - i * 7, w = [hi - 6, hi];
+    const s = new Map(); orders.forEach((o) => { if (o.cust && o.di >= w[0] && o.di <= w[1]) s.set(o.cust, 1); });
+    let nw = 0, rt = 0; s.forEach((_, k) => first.get(k) >= w[0] ? nw++ : rt++);
+    weeks.push({ from: w[0], nw, rt });
+  }
+
+  let cohortLo = end - 60, cohortHi = end - 30, gap = 30;
+  const cohortOf = () => [...first.entries()].filter(([k, d]) => d >= cohortLo && d <= cohortHi).map(([k]) => k);
+  let cohort = cohortOf();
+  if (cohort.length < 10) { cohortLo = end - 44; cohortHi = end - 14; gap = 14; cohort = cohortOf(); }
+  const byCust = new Map(); all.forEach((o) => { if (o.cust) { if (!byCust.has(o.cust)) byCust.set(o.cust, []); byCust.get(o.cust).push(o); } });
+  const back = cohort.filter((k) => byCust.get(k).some((o) => o.di > first.get(k) && o.di <= first.get(k) + gap)).length;
+  const returnRate = cohort.length >= 5 ? back / cohort.length * 100 : null;
+
+  const lapsed = [...last.entries()].filter(([k, d]) => d < end - 29 && d >= end - 120 && count.get(k) >= 2).map(([k, d]) => {
+    const list = byCust.get(k); const fav = {}; list.forEach((o) => Object.entries(o.items).forEach(([n, q]) => fav[n] = (fav[n] || 0) + q));
+    const favItem = Object.entries(fav).sort((a, b) => b[1] - a[1])[0];
+    return { cust: k, orders: count.get(k), last: d, spent: list.reduce((a, o) => a + o.amt, 0), fav: favItem ? favItem[0] : '' };
+  }).sort((a, b) => b.orders - a.orders);
+
+  const recentFirst = [...firstItems.entries()].filter(([k, o]) => o.di >= end - 55 && inPlat(o));
+  const fi = new Map(); recentFirst.forEach(([k, o]) => Object.keys(o.items).forEach((n) => fi.set(n, (fi.get(n) || 0) + 1)));
+  const firstDish = [...fi.entries()].sort((a, b) => b[1] - a[1])[0];
+  const newByPlat = new Map(); C.forEach((o) => { if (o.cust && first.get(o.cust) === o.di && firstItems.get(o.cust) === o) newByPlat.set(o.plat, (newByPlat.get(o.plat) || 0) + 1); });
+
+  const hourTot = new Array(24).fill(0); orders.forEach((o) => hourTot[o.h]++);
+  const hmax = Math.max(...hourTot); const open = hourTot.map((v, h) => v >= hmax * 0.05 && v > 0 ? h : -1).filter((h) => h >= 0);
+  let weak = null;
+  if (open.length >= 4 && S.period !== 'day') {
+    const lo = open[0], hi = open[open.length - 1];
+    const recent = orders.filter((o) => o.di > end - 28);
+    const slots = new Map();
+    for (let d = 0; d < 7; d++) for (let h = lo - (lo % 2); h <= hi; h += 2) slots.set(d + '-' + h, 0);
+    recent.forEach((o) => { const dow = diToDate(o.di).getUTCDay(); const k = dow + '-' + (o.h - (o.h % 2)); if (slots.has(k)) slots.set(k, slots.get(k) + 1); });
+    const blockAvg = new Map();
+    slots.forEach((v, k) => { const h = +k.split('-')[1]; blockAvg.set(h, (blockAvg.get(h) || 0) + v / 7); });
+    const busiest = Math.max(...blockAvg.values());
+    const cands = [...slots.entries()].filter(([k]) => blockAvg.get(+k.split('-')[1]) >= busiest * 0.35);
+    if (cands.length && busiest > 0) {
+      const scored = cands.map(([k, v]) => { const [d, h] = k.split('-').map(Number); return { d, h, r: v / blockAvg.get(h) }; }).sort((a, b) => a.r - b.r);
+      const w0 = scored[0];
+      weak = { day: DOW[w0.d], h: w0.h, below: Math.round((1 - w0.r) * 100) };
+    }
+  }
+
+  const pairs = new Map();
+  C.forEach((o) => { const ns = Object.keys(o.items).sort(); for (let i = 0; i < ns.length; i++) for (let j = i + 1; j < ns.length; j++) { const k = ns[i] + '\u0000' + ns[j]; pairs.set(k, (pairs.get(k) || 0) + 1); } });
+  const topPair = [...pairs.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  return { P, end, cur, prev, sc, sp, spark, top, qc, qp, oc, falling, weeks, returnRate, gap, lapsed, firstDish, recentFirstN: recentFirst.length, newByPlat, weak, topPair, hasCust, hasAmt };
+}
+
+/* ---------- rendering ---------- */
+function sparkSvg(vals, color) {
+  const w = 180, h = 36, pad = 4;
+  const mx = Math.max(...vals), mn = Math.min(...vals), rg = mx - mn || 1;
+  const pts = vals.map((v, i) => [(i / (vals.length - 1 || 1)) * w, h - pad - ((v - mn) / rg) * (h - pad * 2)]);
+  const d = pts.map((p) => p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+  const lp = pts[pts.length - 1];
+  return `<svg viewBox="0 0 ${w} ${h}" width="100%" height="36" preserveAspectRatio="none" aria-hidden="true"><polyline points="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/><circle cx="${lp[0].toFixed(1)}" cy="${lp[1].toFixed(1)}" r="3" fill="${color}" vector-effect="non-scaling-stroke"/></svg>`;
+}
+function kpi(label, val, ch, sub, extra) {
+  return `<div class="kpi"><div class="row"><span class="lab">${label}</span>${ch === undefined ? '' : pill(ch)}</div><div class="val num">${val}</div><div class="sub">${sub}</div>${extra || ''}</div>`;
+}
+const fmtHour = (h) => { const hh = ((h + 11) % 12) + 1; return hh + (h < 12 ? 'am' : 'pm'); };
+const slotLabel = (h) => { const a = fmtHour(h), b = fmtHour((h + 2) % 24); return (a.slice(-2) === b.slice(-2) ? a.slice(0, -2) : a) + '–' + b; };
+
+function render() {
+  const has = S.orders.length > 0;
+  $('empty').classList.toggle('hidden', has);
+  $('dash').classList.toggle('hidden', !has);
+  const hr = new Date().getHours();
+  $('hello').textContent = (hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening') + ', ' + CONFIG.name;
+  renderUploads();
+  if (!has) { $('when').textContent = 'Upload an export to begin'; return; }
+
+  const plats = [...new Set(S.orders.map((o) => o.plat).filter(Boolean))].sort();
+  const sel = $('plat');
+  sel.innerHTML = '<option value="">All platforms</option>' + plats.map((p) => `<option value="${esc(p)}"${p === S.plat ? ' selected' : ''}>${esc(p)}</option>`).join('');
+  sel.classList.toggle('hidden', plats.length < 2);
+  if (S.plat && !plats.includes(S.plat)) S.plat = '';
+
+  const M = compute(); const P = M.P;
+  $('when').textContent = S.period === 'day' ? dLabel(M.end, true) : (S.period === 'week' ? 'Week of ' : '') + dLabel(M.cur[0]) + ' – ' + dLabel(M.cur[1], true);
+  $('srcDate').textContent = 'Latest order ' + dLabel(M.end, true);
+
+  const sc = M.sc, sp = M.sp;
+  const oc = pctChange(sc.orders, sp.orders);
+  let k = kpi('Orders', fmt(sc.orders), oc, `vs ${fmt(sp.orders)} ${P.unit === 'day' ? 'same day last week' : 'last ' + P.unit}`, sparkSvg(M.spark.map((s) => s.orders), '#2E9B6D'));
+  k += M.hasAmt ? kpi('Avg order value', '<small>AED </small>' + fmt(sc.aov), pctChange(sc.aov, sp.aov), `vs AED ${fmt(sp.aov)}`, sparkSvg(M.spark.map((s) => s.aov), '#2E9B6D'))
+                : kpi('Avg order value', '–', undefined, 'No amount column found', '');
+  if (M.hasCust) {
+    const share = sc.cust ? Math.round(sc.nw / sc.cust * 100) : 0;
+    k += kpi('New customers', fmt(sc.nw), pctChange(sc.nw, sp.nw), `${share}% of customers`, `<div class="share"><div style="width:${share}%;background:#E07800"></div></div>`);
+    k += kpi('Returning', fmt(sc.rt), pctChange(sc.rt, sp.rt), `${100 - share}% of customers`, `<div class="share"><div style="width:${100 - share}%;background:#2E9B6D"></div></div>`);
+    const rc = pctChange(sc.rep, sp.rep);
+    k += kpi('Ordered 2+ times', fmt(sc.rep), rc, 'customers ' + (S.period === 'day' ? 'today' : S.period === 'week' ? 'this week' : 'this month'), sparkSvg(M.spark.map((s) => s.rep), rc !== null && rc < 0 ? '#D92D20' : '#2E9B6D'));
+  }
+  $('kpis').innerHTML = k;
+  $('kpis').style.gridTemplateColumns = M.hasCust ? '' : 'repeat(2,minmax(0,1fr))';
+  $('noCust').classList.toggle('hidden', M.hasCust);
+  $('customers').classList.toggle('hidden', !M.hasCust);
+
+  /* most ordered */
+  const tc = $('topCard');
+  if (!M.top.length) tc.innerHTML = `<div class="card-h"><h2>Most ordered</h2><span>${P.short}</span></div><div class="note">No items in this period. Check that the Item column is set under Uploads.</div>`;
+  else {
+    const [n1, q1] = M.top[0]; const share = sc.orders ? Math.round((M.oc.get(n1) || 0) / sc.orders * 100) : 0;
+    const ch = pctChange(q1, M.qp.get(n1) || 0);
+    const chTxt = ch === null ? 'new this period' : (Math.round(ch) >= 0 ? '▲ ' : '▼ ') + Math.abs(Math.round(ch)) + '%';
+    tc.innerHTML = `<div class="card-h"><h2>Most ordered</h2><span>${P.short}</span></div>
+      <div class="hero"><div class="ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11h18a9 9 0 0 1-18 0z"/><path d="M9 7c0-1.5 1-2.5 2-3M13 7c0-1.5 1-2.5 2-3"/></svg></div>
+      <div><div class="rk">No. 1 ${S.period === 'day' ? 'today' : S.period === 'week' ? 'this week' : 'this month'}</div><div class="nm">${esc(n1)}</div><div class="mt">${fmt(q1)} sold · in ${share}% of orders · ${chTxt}</div></div></div>
+      <div class="toplist">${M.top.slice(1, 5).map(([n, q], i) => `<div class="ti"><span class="n">${i + 2}</span><div style="min-width:0"><div class="nm" title="${esc(n)}">${esc(n)}</div><div class="bar"><i style="width:${Math.max(3, q / q1 * 100).toFixed(1)}%"></i></div></div><span class="q">${fmt(q)}</span></div>`).join('')}</div>`;
+  }
+
+  /* falling */
+  const topName = M.top.length ? M.top[0][0] : '';
+  const drinkRe = /juice|shake|smoothie|coffee|latte|drink|water|tea|soda|snack|cookie|bar\b|bites|cup/i;
+  let featureUsed = false;
+  const action = (x) => {
+    if (x.ch <= -50 && x.c <= Math.max(3, x.p * 0.4)) return 'New photo and description, or remove it';
+    if (drinkRe.test(x.n)) return 'Offer it as a low-price add-on';
+    if (topName && x.n !== topName && !featureUsed) { featureUsed = true; return 'Bundle it with the ' + topName.toLowerCase(); }
+    return 'Feature it in this week\'s story';
+  };
+  const fc = $('fallCard');
+  const cmpLbl = S.period === 'day' ? 'Compared with the same day last week' : S.period === 'week' ? 'Compared with last week' : 'Compared with the previous 30 days';
+  if (!M.falling.length) fc.innerHTML = `<div class="card-h"><h2>Falling items</h2><span>${cmpLbl}</span></div><div class="note">No item dropped more than 10% (items with at least ${S.period === 'day' ? 3 : S.period === 'week' ? 5 : 10} sold before). Nothing to fix here.</div>`;
+  else fc.innerHTML = `<div class="card-h"><h2>Falling items</h2><span>${cmpLbl}</span></div>
+    <div class="ftable"><div class="fr head"><span>Item</span><span class="r">Before</span><span class="r">Now</span><span class="r">Change</span><span>What to do</span></div>
+    ${M.falling.map((x) => `<div class="fr"><span class="nm">${esc(x.n)}</span><span class="r">${fmt(x.p)}</span><span class="r">${fmt(x.c)}</span><span class="chg">−${Math.abs(Math.round(x.ch))}%</span><span class="mob">${fmt(x.p)} → ${fmt(x.c)} sold</span><span class="act">${esc(action(x))}</span></div>`).join('')}</div>`;
+
+  /* customers */
+  if (M.hasCust) renderCustomers(M);
+  renderSuggestions(M);
+  $('insight').innerHTML = insight(M);
+  bindTips();
+}
+
+function renderCustomers(M) {
+  const W = 440, H = 196, base = 170, bw = 36, step = 54, x0 = 12;
+  const mx = Math.max(1, ...M.weeks.map((w) => w.nw + w.rt)); const k = 158 / mx;
+  let bars = `<line x1="0" y1="${base}" x2="${W}" y2="${base}" stroke="#ECECEC"/>`;
+  M.weeks.forEach((w, i) => {
+    const x = x0 + i * step, hr = w.rt * k, hn = w.nw * k, last = i === M.weeks.length - 1;
+    if (hr > 0) bars += `<path d="${roundTop(x, base - hr, bw, hr, hn > 0 ? 0 : 4)}" fill="#2E9B6D"/>`;
+    if (hn > 0) bars += `<path d="${roundTop(x, base - hr - hn - (hr > 0 ? 2 : 0), bw, hn, 4)}" fill="#E07800"/>`;
+    bars += `<text x="${x + bw / 2}" y="${H - 8}" text-anchor="middle" font-size="11" font-family="Inter,sans-serif" fill="${last ? '#1E2A24' : '#6B6B6B'}" font-weight="${last ? 600 : 400}">${dLabel(w.from)}</text>`;
+    bars += `<rect x="${x - 8}" y="0" width="${bw + 16}" height="${base}" fill="transparent" data-tip="<b>Week of ${dLabel(w.from)}</b><br>New: ${fmt(w.nw)}<br>Returning: ${fmt(w.rt)}<br>Total: ${fmt(w.nw + w.rt)}"/>`;
+  });
+  const rr = M.returnRate === null ? '–' : Math.round(M.returnRate) + '%';
+  $('customers').innerHTML = `<div class="card-h"><h2>Customers</h2><span>Last 8 weeks</span></div>
+    <div class="legend"><span><i class="sw" style="background:#E07800"></i>New</span><span><i class="sw" style="background:#2E9B6D"></i>Returning</span></div>
+    <svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="New and returning customers per week for the last 8 weeks">${bars}</svg>
+    <table class="sr"><caption>Customers per week</caption><tr><th>Week of</th><th>New</th><th>Returning</th></tr>${M.weeks.map((w) => `<tr><td>${dLabel(w.from, true)}</td><td>${w.nw}</td><td>${w.rt}</td></tr>`).join('')}</table>
+    <div class="stats">
+      <div class="stat"><div class="num">${rr}</div><div class="l">new customers came back within ${M.gap} days</div></div>
+      <div class="stat"><div class="num">${M.sc.cust ? (M.sc.orders / M.sc.cust).toFixed(1) : '–'}</div><div class="l">orders per customer ${S.period === 'day' ? 'today' : S.period === 'week' ? 'this week' : 'this month'}</div></div>
+      <div class="stat${M.lapsed.length ? ' bad' : ''}"><div class="num">${fmt(M.lapsed.length)}</div><div class="l">regulars with no order in 30 days</div></div>
+    </div>`;
+}
+function roundTop(x, y, w, h, r) { r = Math.min(r, h, w / 2); return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`; }
+
+function renderSuggestions(M) {
+  const grow = [], attract = [];
+  const periodWord = S.period === 'day' ? 'today' : S.period === 'week' ? 'this week' : 'this month';
+  if (M.hasCust && M.lapsed.length >= 3) {
+    const avg = M.lapsed.reduce((a, l) => a + l.orders, 0) / M.lapsed.length;
+    grow.push({ t: `Win back ${fmt(M.lapsed.length)} lapsed regulars`, b: `They ordered ${avg.toFixed(1)} times on average, then stopped for 30+ days. Send them a comeback code valid for 5 days. The list includes each one's favourite dish.`, btn: 'Download list', act: () => download('lapsed-customers.csv', toCSV([['Customer', 'Orders', 'Last order', 'Total spent (AED)', 'Favourite item'], ...M.lapsed.map((l) => [l.cust, l.orders, dLabel(l.last, true), Math.round(l.spent), l.fav])])) });
+  }
+  if (M.hasCust && M.returnRate !== null && M.returnRate < 60) {
+    const lost = 100 - Math.round(M.returnRate);
+    grow.push({ t: 'Turn first orders into second orders', b: `${lost}% of new customers didn't order again within ${M.gap} days. Put a 2nd-order discount card in every bag.`, btn: 'Copy card text', act: () => copyText('Thanks for your first order with EAT N\' SHRED!\nYour next meal is 15% off — use code SHRED2 within 7 days.\n\nشكرًا على أول طلب من EAT N\' SHRED!\nطلبك الجاي عليه خصم 15% بكود SHRED2 خلال 7 أيام.') });
+  }
+  if (M.topPair && M.topPair[1] >= 3) {
+    const [a, b] = M.topPair[0].split('\u0000');
+    grow.push({ t: `Make "${a} + ${b}" a named combo`, b: `They were ordered together ${fmt(M.topPair[1])} times ${periodWord}. A combo with a small saving raises the average order.`, btn: 'Copy offer', act: () => copyText(`${a} + ${b} combo — save AED 10 when you order both.`) });
+  }
+  if (M.falling.length && grow.length < 2) {
+    const f = M.falling[0];
+    grow.push({ t: `Bring back the ${f.n.toLowerCase()}`, b: `Down ${Math.abs(Math.round(f.ch))}% (${fmt(f.p)} → ${fmt(f.c)}). Remind regulars with a story and a limited-time price.`, btn: 'Copy story idea', act: () => copyText(`Story idea: "Missing the ${f.n}?" — show it being plated, add a 48-hour price, link to order.`) });
+  }
+  if (M.firstDish && M.recentFirstN >= 10) {
+    const oneIn = Math.max(1, Math.round(M.recentFirstN / M.firstDish[1]));
+    attract.push({ t: `Lead your ads with the ${M.firstDish[0].toLowerCase()}`, b: `It's the most common first order: 1 in ${oneIn} new customers start with it.`, btn: 'Copy ad idea', act: () => copyText(`Ad idea: first-timers love our ${M.firstDish[0]}. Hero shot of the dish, one line on protein and calories, and "Try it today" with a first-order offer.`) });
+  } else if (M.top.length) {
+    attract.push({ t: `Lead your ads with the ${M.top[0][0].toLowerCase()}`, b: `It's your best seller ${periodWord}, so it's the safest dish to put in front of new people.`, btn: 'Copy ad idea', act: () => copyText(`Ad idea: our best seller, the ${M.top[0][0]}. Hero shot, one line on protein and calories, and a first-order offer.`) });
+  }
+  if (M.weak && M.weak.below >= 15) {
+    attract.push({ t: `First-order offer on ${M.weak.day}, ${slotLabel(M.weak.h)}`, b: `Your weakest slot in the last 4 weeks: ${M.weak.below}% fewer orders than a typical ${slotLabel(M.weak.h)}. A new-customer offer here fills idle kitchen time.`, btn: 'Copy offer', act: () => copyText(`${M.weak.day}s ${slotLabel(M.weak.h)} only: 20% off your first order. / كل ${M.weak.day} من ${slotLabel(M.weak.h)}: خصم 20% على أول طلب.`) });
+  }
+  if (M.hasCust && M.newByPlat.size >= 2) {
+    const tot = [...M.newByPlat.values()].reduce((a, b) => a + b, 0);
+    const [p, v] = [...M.newByPlat.entries()].sort((a, b) => b[1] - a[1])[0];
+    if (tot >= 10 && p) attract.push({ t: `Most new customers come from ${p}`, b: `${Math.round(v / tot * 100)}% of ${periodWord}'s first orders came through ${p}. Put new-customer offers there first.`, btn: 'Filter to ' + p, act: () => { S.plat = p; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
+  }
+  const g = grow.slice(0, 2), a = attract.slice(0, 2);
+  S.acts = [...g, ...a].map((s) => s.act);
+  let i = 0;
+  const item = (s, cls) => { const idx = i++; return `<div class="sg"><div class="no ${cls}">${idx + 1}</div><div class="tx"><div class="t">${esc(s.t)}</div><div class="b">${esc(s.b)}</div></div><button type="button" class="btn" data-act="${idx}">${esc(s.btn)}</button></div>`; };
+  $('suggestions').innerHTML = `<div class="card-h"><h2>What to do ${S.period === 'day' ? 'today' : 'this week'}</h2><span>Based on your numbers</span></div>
+    ${g.length ? '<div class="sg-group g">Grow current customers</div>' + g.map((s) => item(s, 'g')).join('') : ''}
+    ${a.length ? '<div class="sg-group o">Attract new customers</div>' + a.map((s) => item(s, 'o')).join('') : ''}
+    ${!g.length && !a.length ? '<div class="note">Not enough data for suggestions yet. Upload a few more weeks of orders.</div>' : ''}`;
+}
+
+function insight(M) {
+  const ch = pctChange(M.sc.orders, M.sp.orders);
+  const cmp = S.period === 'day' ? 'vs the same day last week' : S.period === 'week' ? 'vs last week' : 'vs the previous 30 days';
+  let a;
+  if (ch === null) a = `${fmt(M.sc.orders)} orders`;
+  else { const r = Math.round(ch); a = r > 0 ? `orders are up ${r}% ${cmp}` : r < 0 ? `orders are down ${Math.abs(r)}% ${cmp}` : `orders are flat ${cmp}`; }
+  let b = '';
+  const repCh = pctChange(M.sc.rep, M.sp.rep);
+  if (M.hasCust && M.lapsed.length >= 20) b = `${repCh !== null && repCh < 0 ? 'Fewer customers ordered twice. ' : ''}Winning back the ${fmt(M.lapsed.length)} lapsed regulars is your biggest quick win.`;
+  else if (M.falling.length) b = `Watch the ${esc(M.falling[0].n.toLowerCase())}: down ${Math.abs(Math.round(M.falling[0].ch))}%.`;
+  else if (M.top.length) b = `The ${esc(M.top[0][0].toLowerCase())} is carrying the ${S.period === 'day' ? 'day' : S.period === 'week' ? 'week' : 'month'}.`;
+  return `<b>${S.period === 'day' ? 'Today' : S.period === 'week' ? 'This week' : 'This month'} in one line:</b> ${a.charAt(0).toUpperCase() + a.slice(1)}. ${b}`;
+}
+
+function bindTips() {
+  const tip = $('tip');
+  document.querySelectorAll('[data-tip]').forEach((el) => {
+    el.onmousemove = (e) => { tip.innerHTML = el.getAttribute('data-tip'); tip.style.opacity = 1; const x = Math.min(e.clientX + 14, innerWidth - tip.offsetWidth - 8); tip.style.left = x + 'px'; tip.style.top = (e.clientY - tip.offsetHeight - 10) + 'px'; };
+    el.onmouseleave = () => tip.style.opacity = 0;
+  });
+}
+
+/* ---------- uploads UI ---------- */
+function renderUploads() {
+  const f = $('files');
+  if (!S.files.length) f.innerHTML = '<div>No file loaded yet.</div>';
+  else {
+    const inf = S.info || {};
+    f.innerHTML = S.files.map((n) => `<div><b style="color:var(--ink);font-weight:600">${esc(n)}</b></div>`).join('') +
+      `<div>${fmt(S.orders.length)} orders${inf.from != null ? ' · ' + dLabel(inf.from, true) + ' – ' + dLabel(inf.to, true) : ''}${inf.cancelled ? ' · ' + fmt(inf.cancelled) + ' cancelled orders left out' : ''}${inf.skipped ? ' · ' + fmt(inf.skipped) + ' rows without a readable date skipped' : ''}</div>`;
+  }
+  $('srcName').textContent = S.files.length ? (S.files.length === 1 ? S.files[0] : S.files.length + ' files') : 'No data yet';
+  $('srcSample').classList.toggle('hidden', !S.sample);
+  const mw = $('mapWrap');
+  if (!S.raw) { mw.classList.toggle('hidden', !S.orders.length); $('map').innerHTML = S.orders.length ? '<div class="note" style="grid-column:1/-1">To change columns, upload the file again.</div>' : ''; return; }
+  mw.classList.remove('hidden');
+  const opts = (sel) => '<option value="">— none —</option>' + S.raw.headers.map((h) => `<option value="${esc(h)}"${h === sel ? ' selected' : ''}>${esc(h)}</option>`).join('');
+  $('map').innerHTML = FIELDS.map((fd) => `<label>${fd.label}${fd.req ? ' *' : ''}<select data-f="${fd.key}">${opts(S.map[fd.key])}</select></label>`).join('');
+}
+
+async function handleFiles(list) {
+  const files = [...list].filter((f) => /\.(csv|xlsx|xls)$/i.test(f.name));
+  if (!files.length) { toast('Choose a .csv or .xlsx file'); return; }
+  if (typeof XLSX === 'undefined') { toast('The file reader did not load. Check your connection and refresh.'); return; }
+  try {
+    const parts = await Promise.all(files.map(readFile));
+    const headers = [...new Set(parts.flatMap((p) => p.headers))];
+    const rows = parts.flatMap((p) => p.rows);
+    ingest({ headers, rows }, files.map((f) => f.name), false);
+  } catch (e) { toast(e.message); }
+}
+function ingest(raw, names, sample) {
+  S.raw = raw; S.map = detect(raw.headers); S.files = names; S.sample = sample; S.plat = '';
+  apply();
+  if (!S.map.date) { toast('No date column found. Pick it under Uploads.'); location.hash = '#uploads'; }
+}
+function apply() {
+  if (!S.raw) return;
+  if (!S.map.date) { S.orders = []; render(); return; }
+  const r = buildOrders(S.raw.rows, S.map);
+  S.orders = r.orders;
+  S.info = { skipped: r.skipped, cancelled: r.cancelled, from: S.orders.length ? S.orders[0].di : null, to: S.orders.length ? S.orders[S.orders.length - 1].di : null };
+  save(); render();
+  if (!S.orders.length) toast('No orders could be read. Check the Date column under Uploads.');
+}
+
+/* ---------- sample data ---------- */
+function mulberry(a) { return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function sampleRows() {
+  const R = mulberry(20260929);
+  const pickW = (arr, wf) => { const ws = arr.map(wf); const tot = ws.reduce((a, b) => a + b, 0); let x = R() * tot; for (let i = 0; i < arr.length; i++) { x -= ws[i]; if (x <= 0) return arr[i]; } return arr[arr.length - 1]; };
+  const menu = [
+    ['Salmon Quinoa Bowl', 62, 12], ['Protein Pancakes', 38, 10], ['Chicken Shawarma Bowl', 45, 8.5], ['Beef Burrito Bowl', 49, 7.2], ['Acai Protein Cup', 34, 5.5],
+    ['Teriyaki Chicken Bowl', 46, 6.8], ['Turkey Lasagna', 52, 3.4], ['Green Detox Juice', 22, 4.8], ['Keto Wrap', 41, 1.1], ['Grilled Halloumi Salad', 39, 3.6],
+    ['Peri Peri Chicken Plate', 48, 4.4], ['Shrimp Poke Bowl', 58, 3.2], ['Oats Overnight Jar', 24, 3.9], ['Protein Shake - Chocolate', 26, 5.2], ['Protein Shake - Vanilla', 26, 3.1],
+    ['Sweet Potato Fries', 18, 3.5], ['Chicken Caesar Wrap', 36, 3.3], ['Vegan Buddha Bowl', 44, 2.4], ['Egg White Omelette', 32, 2.2], ['Date & Peanut Bites', 16, 2.9],
+  ];
+  const plats = [['Talabat', 0.44], ['Deliveroo', 0.25], ['Careem', 0.17], ['Direct', 0.14]];
+  const now = new Date(); const endDi = dayIndex(now.getFullYear(), now.getMonth() + 1, now.getDate()) - 1;
+  const days = 100, start = endDi - days + 1;
+  const pool = []; let nextId = 1; const rows = []; let oid = 480000;
+  const hourW = [0,0,0,0,0,0,0,0,0.2,0.5,0.8,1.6,3.2,3.6,2.4,1.3,1.1,1.5,2.4,3.3,3.1,2.0,1.0,0.4];
+  for (let di = start; di <= endDi; di++) {
+    const dow = diToDate(di).getUTCDay();
+    const t = (di - start) / days;
+    const wf = [1.12, 0.95, 0.93, 0.96, 1.0, 1.08, 1.18][dow];
+    const n = Math.round(98 * wf * (0.92 + 0.14 * t) * (0.9 + R() * 0.2));
+    const lastWeek = di > endDi - 7;
+    for (let k = 0; k < n; k++) {
+      const hour = +pickW(hourW.map((w, h) => [h, w]), (x) => x[1] * (dow === 0 && (x[0] === 14 || x[0] === 15) ? 0.4 : 1))[0];
+      let cust;
+      const active = pool.filter((c) => c.until >= di);
+      if (active.length > 40 && R() < 0.72) cust = pickW(active.slice(-700), (c) => c.w);
+      else { cust = { id: '05' + String(Math.floor(R() * 1e8)).padStart(8, '0'), w: 0.3 + R() * R() * 4, until: di + (R() < 0.25 ? 3 + Math.floor(R() * 20) : 120 + Math.floor(R() * 200)) }; pool.push(cust); }
+      const plat = pickW(plats, (p) => p[1])[0];
+      const cnt = R() < 0.62 ? 1 : R() < 0.8 ? 2 : 3;
+      const chosen = {};
+      for (let j = 0; j < cnt; j++) {
+        const it = pickW(menu, (m) => {
+          let w = m[2];
+          if (lastWeek && m[0] === 'Teriyaki Chicken Bowl') w *= 0.68;
+          if (lastWeek && m[0] === 'Keto Wrap') w *= 0.35;
+          if (lastWeek && m[0] === 'Green Detox Juice') w *= 0.78;
+          if (lastWeek && m[0] === 'Turkey Lasagna') w *= 0.82;
+          if (m[0] === 'Salmon Quinoa Bowl') w *= 0.85 + 0.3 * t;
+          if (j > 0 && /Shake|Juice|Fries|Bites/.test(m[0])) w *= 2.2;
+          return w;
+        });
+        chosen[it[0]] = chosen[it[0]] || { price: it[1], q: 0 }; chosen[it[0]].q++;
+      }
+      const total = Object.values(chosen).reduce((a, c) => a + c.price * c.q, 0);
+      const status = R() < 0.03 ? 'Cancelled' : 'Delivered';
+      const d = diToDate(di); const mi = Math.floor(R() * 60);
+      const stamp = `${String(d.getUTCDate()).padStart(2, '0')}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${d.getUTCFullYear()} ${String(hour).padStart(2, '0')}:${String(mi).padStart(2, '0')}`;
+      oid++;
+      Object.entries(chosen).forEach(([name, c]) => rows.push({ 'Order ID': 'GT-' + oid, 'Order Date': stamp, 'Customer Phone': cust.id, 'Channel': plat, 'Item Name': name, 'Quantity': c.q, 'Order Total': total.toFixed(2), 'Status': status }));
+    }
+  }
+  return { headers: ['Order ID', 'Order Date', 'Customer Phone', 'Channel', 'Item Name', 'Quantity', 'Order Total', 'Status'], rows };
+}
+
+/* ---------- events ---------- */
+$('uploadBtn').onclick = () => $('file').click();
+$('emptyUpload').onclick = () => $('file').click();
+$('file').onchange = (e) => { handleFiles(e.target.files); e.target.value = ''; };
+$('sampleBtn').onclick = () => { ingest(sampleRows(), ['Sample export (100 days)'], true); toast('Sample data loaded'); };
+$('dlSample').onclick = (e) => { e.preventDefault(); const s = sampleRows(); download('sample-export.csv', toCSV([s.headers, ...s.rows.slice(0, 3000).map((r) => s.headers.map((h) => r[h]))])); };
+$('applyMap').onclick = () => { document.querySelectorAll('#map select').forEach((s) => { if (s.value) S.map[s.dataset.f] = s.value; else delete S.map[s.dataset.f]; }); apply(); toast('Columns applied'); };
+$('clearData').onclick = () => { S.orders = []; S.raw = null; S.files = []; S.map = null; S.info = null; S.sample = false; try { localStorage.removeItem(STORE); } catch (e) {} render(); };
+$('plat').onchange = (e) => { S.plat = e.target.value; render(); };
+document.querySelectorAll('.seg button').forEach((b) => b.onclick = () => { S.period = b.dataset.p; document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', x === b)); render(); });
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b && S.acts && S.acts[+b.dataset.act]) S.acts[+b.dataset.act](); });
+document.querySelectorAll('.nav a').forEach((a) => a.addEventListener('click', () => { document.querySelectorAll('.nav a').forEach((x) => x.classList.toggle('on', x === a)); }));
+let dragN = 0;
+addEventListener('dragenter', (e) => { if ([...(e.dataTransfer?.types || [])].includes('Files')) { dragN++; $('drop').classList.add('on'); } });
+addEventListener('dragleave', () => { dragN = Math.max(0, dragN - 1); if (!dragN) $('drop').classList.remove('on'); });
+addEventListener('dragover', (e) => e.preventDefault());
+addEventListener('drop', (e) => { e.preventDefault(); dragN = 0; $('drop').classList.remove('on'); if (e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files); });
+
+load();
+render();
+</script>
+</body>
+</html>

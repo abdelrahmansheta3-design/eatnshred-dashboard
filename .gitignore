@@ -1,0 +1,5 @@
+# Order exports contain customer data: never commit them
+*.csv
+*.xlsx
+*.xls
+.DS_Store
