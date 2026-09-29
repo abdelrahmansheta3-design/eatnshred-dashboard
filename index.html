@@ -62,6 +62,7 @@ select.plat{appearance:none;-webkit-appearance:none;border:1px solid var(--line)
 .card-h span{font-size:12px;color:var(--muted)}
 
 .kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
+.kpis.k4{grid-template-columns:repeat(4,minmax(0,1fr))}.kpis.k3{grid-template-columns:repeat(3,minmax(0,1fr))}.kpis.k2{grid-template-columns:repeat(2,minmax(0,1fr))}
 .kpi{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 18px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
 .kpi .row{display:flex;justify-content:space-between;align-items:center;gap:6px}
 .kpi .lab{font-size:13px;color:var(--muted)}
@@ -100,6 +101,18 @@ select.plat{appearance:none;-webkit-appearance:none;border:1px solid var(--line)
 .act{font-size:13px;color:var(--orange-ink);background:var(--orange-tint);padding:6px 10px;border-radius:8px}
 .fr .mob{display:none}
 
+.ptable{display:flex;flex-direction:column}
+.pr{display:grid;grid-template-columns:minmax(0,1.6fr) 1.1fr 0.9fr 0.8fr;gap:12px;align-items:center;font-size:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.pr:last-child{border-bottom:0}
+.pr.head{font-size:12px;color:var(--muted);padding:6px 0}
+.pr .nm{color:var(--ink);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pr .sh{font-size:12px;color:var(--muted);font-weight:400;margin-left:4px}
+.pr .bar{height:6px;background:var(--bg);border-radius:3px;margin-top:6px}
+.pr .bar i{display:block;height:6px;background:var(--green);border-radius:3px}
+.pr .r{text-align:right;white-space:nowrap}
+.pr .r b{font-weight:600;color:var(--ink)}
+.pr .r .pill{margin-left:4px}
+.pr .hot{color:var(--orange-ink);font-weight:600}
 .legend{display:flex;gap:18px;font-size:12px;color:var(--text)}
 .legend span{display:flex;align-items:center;gap:6px}
 .sw{width:10px;height:10px;border-radius:3px;display:inline-block}
@@ -143,6 +156,7 @@ select.plat{appearance:none;-webkit-appearance:none;border:1px solid var(--line)
 
 @media (max-width:1180px){
   .kpis{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .kpis.k4{grid-template-columns:repeat(2,minmax(0,1fr))}
   .grid-2{grid-template-columns:minmax(0,1fr)}
 }
 @media (max-width:820px){
@@ -159,7 +173,7 @@ select.plat{appearance:none;-webkit-appearance:none;border:1px solid var(--line)
   .btn-primary{flex-grow:1;justify-content:center;padding:12px}
   .insight{font-size:14px;padding:14px 16px}
   .insight .dot{display:none}
-  .kpis{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .kpis,.kpis.k4,.kpis.k3{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
   .kpi{padding:14px;border-radius:14px}
   .kpi .val{font-size:24px}
   .kpi svg,.kpi .share{display:none}
@@ -177,6 +191,8 @@ select.plat{appearance:none;-webkit-appearance:none;border:1px solid var(--line)
   .sg .no{display:none}
   .sg .btn{min-height:44px}
   .map{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .pr{grid-template-columns:minmax(0,1fr) auto auto auto;gap:10px;font-size:13px}
+  .pr .r .pill{display:none}
 }
 </style>
 </head>
@@ -221,6 +237,18 @@ select.plat{appearance:none;-webkit-appearance:none;border:1px solid var(--line)
         <input type="file" id="file" class="hidden" accept=".csv,.xlsx,.xls" multiple>
       </div>
     </header>
+
+    <section class="card hidden" id="pwBox" aria-live="polite">
+      <div class="card-h"><h2>This file is password-protected</h2><span id="pwName"></span></div>
+      <div style="font-size:13px;line-height:1.6">Enter the password you set when exporting from Grubtech. It's remembered on this device, so next time the file opens by itself.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+        <label class="sr" for="pwInput">File password</label>
+        <input type="password" id="pwInput" autocomplete="off" placeholder="File password" style="font:inherit;font-size:14px;padding:11px 14px;border:1px solid var(--line-strong);border-radius:10px;min-width:220px;flex:1;max-width:320px">
+        <button type="button" class="btn-primary" id="pwOk">Unlock</button>
+        <button type="button" class="btn" id="pwCancel">Cancel</button>
+      </div>
+      <div id="pwErr" class="hidden" style="font-size:13px;color:var(--red-ink)"></div>
+    </section>
 
     <section class="card empty" id="empty">
       <h2>Upload your first export</h2>
@@ -310,9 +338,17 @@ const FIELDS = [
   { key: 'customer', label: 'Customer (phone or ID)', syn: ['customer phone','phone','mobile','phone number','customer mobile','customer number','customer id','customer_id','customer','client','customer name','guest','guest phone'] },
   { key: 'item', label: 'Item', syn: ['item','item name','items','product','product name','dish','menu item','item_name','name','description'] },
   { key: 'qty', label: 'Quantity', syn: ['qty','quantity','count','units','item qty','item quantity'] },
-  { key: 'amount', label: 'Amount', syn: ['order total','total','amount','net sales','gross sales','sales','total amount','grand total','order amount','value','subtotal','net amount','price','line total','item total'] },
+  { key: 'amount', label: 'Order total (paid)', syn: ['total(receipt total)','receipt total','order total','total','amount','net sales','sales','total amount','grand total','order amount','value','net amount','price','line total','item total'] },
   { key: 'platform', label: 'Platform', syn: ['channel','platform','source','order source','aggregator','ordering platform','sales channel','order channel','provider'] },
   { key: 'status', label: 'Status', syn: ['status','order status','state'] },
+  { key: 'modifier', label: 'Modifier / add-on', syn: ['modifier','modifiers','add on','addon','add ons','option','options'] },
+  { key: 'linePrice', label: 'Line price', syn: ['item total sales amount','item price','line price','line amount'] },
+  { key: 'gross', label: 'Order total before discount', syn: ['gross price','gross sales','gross amount','gross total'] },
+  { key: 'discount', label: 'Order discount', syn: ['discount','order discount','total discount','discount amount'] },
+];
+const PRESETS = [
+  { name: 'Grubtech order item sales', test: (h) => h.includes('Unique Order ID') && h.includes('Menu Item') && h.includes('Modifier'),
+    map: { order: 'Unique Order ID', date: 'Date', item: 'Menu Item', qty: 'Qty', amount: 'Total(Receipt Total)', platform: 'Channel', modifier: 'Modifier', linePrice: 'Item Total Sales Amount', gross: 'Gross Price', discount: 'Discount' } },
 ];
 const normH = (h) => String(h ?? '').toLowerCase().replace(/[_\-]+/g, ' ').replace(/\s+/g, ' ').trim();
 function scoreHeader(h, f) {
@@ -326,6 +362,8 @@ function scoreHeader(h, f) {
   return best;
 }
 function detect(headers) {
+  const preset = PRESETS.find((p) => p.test(headers));
+  if (preset) { const m = {}; Object.entries(preset.map).forEach(([k, h]) => { if (headers.includes(h)) m[k] = h; }); if (m.date) return m; }
   const map = {}; const used = new Set();
   const cand = [];
   FIELDS.forEach((f) => headers.forEach((h) => { const s = scoreHeader(h, f); if (s) cand.push({ f: f.key, h, s }); }));
@@ -335,17 +373,118 @@ function detect(headers) {
   return map;
 }
 
+/* ---------- password-protected Excel (Office agile encryption) ---------- */
+function sha1(msg) {
+  const ml = msg.length, len = ((ml + 9 + 63) >> 6) << 6, b = new Uint8Array(len);
+  b.set(msg); b[ml] = 0x80;
+  const dv = new DataView(b.buffer), bits = ml * 8;
+  dv.setUint32(len - 4, bits >>> 0); dv.setUint32(len - 8, Math.floor(bits / 4294967296));
+  let h0 = 0x67452301, h1 = 0xEFCDAB89, h2 = 0x98BADCFE, h3 = 0x10325476, h4 = 0xC3D2E1F0;
+  const w = new Int32Array(80);
+  for (let off = 0; off < len; off += 64) {
+    for (let t = 0; t < 16; t++) w[t] = dv.getInt32(off + t * 4);
+    for (let t = 16; t < 80; t++) { const x = w[t - 3] ^ w[t - 8] ^ w[t - 14] ^ w[t - 16]; w[t] = (x << 1) | (x >>> 31); }
+    let a = h0, bb = h1, c = h2, d = h3, e = h4;
+    for (let t = 0; t < 80; t++) {
+      const f = t < 20 ? (bb & c) | (~bb & d) : t < 40 ? bb ^ c ^ d : t < 60 ? (bb & c) | (bb & d) | (c & d) : bb ^ c ^ d;
+      const k = t < 20 ? 0x5A827999 : t < 40 ? 0x6ED9EBA1 : t < 60 ? 0x8F1BBCDC : 0xCA62C1D6;
+      const tmp = (((a << 5) | (a >>> 27)) + f + e + k + w[t]) | 0;
+      e = d; d = c; c = (bb << 30) | (bb >>> 2); bb = a; a = tmp;
+    }
+    h0 = (h0 + a) | 0; h1 = (h1 + bb) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0; h4 = (h4 + e) | 0;
+  }
+  const out = new Uint8Array(20), o = new DataView(out.buffer);
+  [h0, h1, h2, h3, h4].forEach((h, i) => o.setInt32(i * 4, h));
+  return out;
+}
+const cat = (...arrs) => { const n = arrs.reduce((a, x) => a + x.length, 0), o = new Uint8Array(n); let p = 0; arrs.forEach((x) => { o.set(x, p); p += x.length; }); return o; };
+const le32 = (i) => { const b = new Uint8Array(4); new DataView(b.buffer).setUint32(0, i, true); return b; };
+const b64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+const fixLen = (h, n) => { if (h.length >= n) return h.slice(0, n); const o = new Uint8Array(n).fill(0x36); o.set(h); return o; };
+class WrongPassword extends Error {}
+function isEncryptedOffice(u8) {
+  if (!(u8[0] === 0xD0 && u8[1] === 0xCF && u8[2] === 0x11 && u8[3] === 0xE0)) return false;
+  try { const c = XLSX.CFB.read(u8, { type: 'array' }); return !!XLSX.CFB.find(c, 'EncryptionInfo'); } catch (e) { return false; }
+}
+async function decryptOffice(u8, password) {
+  const cfb = XLSX.CFB.read(u8, { type: 'array' });
+  const info = XLSX.CFB.find(cfb, 'EncryptionInfo').content, pkg = XLSX.CFB.find(cfb, 'EncryptedPackage').content;
+  const infoU8 = Uint8Array.from(info), pkgU8 = Uint8Array.from(pkg);
+  if (!(infoU8[0] === 4 && infoU8[2] === 4)) throw new Error('This file uses an older Excel encryption. Open it in Excel and save it without a password.');
+  const xml = new TextDecoder().decode(infoU8.slice(8));
+  const attrs = (tag) => { const m = xml.match(new RegExp('<' + tag + '\\s([^>]*)>')); const o = {}; if (m) m[1].replace(/(\w+)="([^"]*)"/g, (_, k, v) => { o[k] = v; }); return o; };
+  const kd = attrs('keyData'), ke = attrs('p:encryptedKey');
+  const algo = (ke.hashAlgorithm || 'SHA1').toUpperCase().replace('-', '');
+  const hash = algo === 'SHA1' ? async (x) => sha1(x) : async (x) => new Uint8Array(await crypto.subtle.digest(algo.replace('SHA', 'SHA-'), x));
+  const pw = new Uint8Array(password.length * 2); for (let i = 0; i < password.length; i++) { pw[i * 2] = password.charCodeAt(i) & 255; pw[i * 2 + 1] = password.charCodeAt(i) >> 8; }
+  let H = await hash(cat(b64(ke.saltValue), pw));
+  const spins = +ke.spinCount || 100000;
+  for (let i = 0; i < spins; i++) H = await hash(cat(le32(i), H));
+  const keyLen = (+ke.keyBits || 128) / 8;
+  const aesRaw = async (keyBytes, iv, data, cryptoKey) => {
+    const key = cryptoKey || await crypto.subtle.importKey('raw', keyBytes, 'AES-CBC', false, ['encrypt', 'decrypt']);
+    const pad = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-CBC', iv: data.slice(-16) }, key, new Uint8Array(0)));
+    return new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-CBC', iv }, key, cat(data, pad)));
+  };
+  const derive = async (blk) => fixLen(await hash(cat(H, Uint8Array.from(blk))), keyLen);
+  const saltKE = b64(ke.saltValue);
+  const vIn = (await aesRaw(await derive([0xfe, 0xa7, 0xd2, 0x76, 0x3b, 0x4b, 0x9e, 0x79]), saltKE, b64(ke.encryptedVerifierHashInput))).slice(0, +ke.saltSize || 16);
+  const vHash = (await aesRaw(await derive([0xd7, 0xaa, 0x0f, 0x6d, 0x30, 0x61, 0x34, 0x4e]), saltKE, b64(ke.encryptedVerifierHashValue))).slice(0, +ke.hashSize || 20);
+  const check = await hash(vIn);
+  if (check.some((v, i) => v !== vHash[i])) throw new WrongPassword('Wrong password');
+  const secret = (await aesRaw(await derive([0x14, 0x6e, 0x0b, 0xe7, 0xab, 0xac, 0xd0, 0xd6]), saltKE, b64(ke.encryptedKeyValue))).slice(0, (+kd.keyBits || 128) / 8);
+  const key = await crypto.subtle.importKey('raw', secret, 'AES-CBC', false, ['encrypt', 'decrypt']);
+  const dvp = new DataView(pkgU8.buffer, pkgU8.byteOffset);
+  const size = dvp.getUint32(0, true) + dvp.getUint32(4, true) * 4294967296;
+  const data = pkgU8.slice(8), saltKD = b64(kd.saltValue), bs = +kd.blockSize || 16;
+  const parts = [];
+  for (let i = 0, off = 0; off < data.length; i++, off += 4096) {
+    const iv = fixLen(await hash(cat(saltKD, le32(i))), bs);
+    parts.push(await aesRaw(null, iv, data.slice(off, Math.min(off + 4096, data.length)), key));
+  }
+  return cat(...parts).slice(0, size);
+}
+const PWKEY = 'eatnshred-file-password';
+const savedPw = () => { try { return localStorage.getItem(PWKEY) || ''; } catch (e) { return ''; } };
+function askPassword(name, wrong) {
+  return new Promise((res) => {
+    const box = $('pwBox'), inp = $('pwInput'), err = $('pwErr');
+    $('pwName').textContent = name; err.textContent = wrong ? 'That password didn’t work. Try again.' : ''; err.classList.toggle('hidden', !wrong);
+    box.classList.remove('hidden'); inp.value = ''; setTimeout(() => inp.focus(), 50);
+    const done = (v) => { box.classList.add('hidden'); $('pwOk').onclick = $('pwCancel').onclick = inp.onkeydown = null; res(v); };
+    $('pwOk').onclick = () => { if (!inp.value) { err.textContent = 'Enter the password first.'; err.classList.remove('hidden'); return; } done(inp.value); };
+    $('pwCancel').onclick = () => done(null);
+    inp.onkeydown = (e) => { if (e.key === 'Enter') $('pwOk').click(); if (e.key === 'Escape') done(null); };
+  });
+}
+async function unlock(u8, name) {
+  let pw = savedPw(), wrong = false;
+  for (let tries = 0; tries < 5; tries++) {
+    if (!pw || wrong) { pw = await askPassword(name, wrong); if (pw === null) throw new Error(name + ': not opened (no password).'); }
+    toast('Unlocking ' + name + '…');
+    try { const out = await decryptOffice(u8, pw); try { localStorage.setItem(PWKEY, pw); } catch (e) {} return out; }
+    catch (e) { if (e instanceof WrongPassword) { wrong = true; continue; } throw e; }
+  }
+  throw new Error(name + ': wrong password.');
+}
+
 /* ---------- reading files ---------- */
 function readFile(file) {
   return new Promise((res, rej) => {
     const r = new FileReader();
     const isCSV = /\.csv$/i.test(file.name) || file.type === 'text/csv';
     r.onerror = () => rej(new Error('Could not read ' + file.name));
-    r.onload = () => {
+    r.onload = async () => {
       try {
-        const wb = isCSV ? XLSX.read(r.result, { type: 'string', raw: true }) : XLSX.read(new Uint8Array(r.result), { type: 'array', cellDates: true });
+        let wb;
+        if (isCSV) wb = XLSX.read(r.result, { type: 'string', raw: true });
+        else {
+          let u8 = new Uint8Array(r.result);
+          if (isEncryptedOffice(u8)) u8 = await unlock(u8, file.name);
+          wb = XLSX.read(u8, { type: 'array', cellDates: true });
+        }
         res(sheetToRows(wb));
-      } catch (e) { rej(new Error(file.name + ': ' + e.message)); }
+      } catch (e) { rej(new Error(e.message.startsWith(file.name) ? e.message : file.name + ': ' + e.message)); }
     };
     isCSV ? r.readAsText(file) : r.readAsArrayBuffer(file);
   });
@@ -398,7 +537,9 @@ function parseTime(v) {
   if (ap === 'pm' && h < 12) h += 12; if (ap === 'am' && h === 12) h = 0; return h;
 }
 const parseNum = (v) => { if (typeof v === 'number') return v; const n = parseFloat(String(v ?? '').replace(/[^0-9.\-]/g, '')); return isNaN(n) ? null : n; };
-const cleanName = (s) => String(s ?? '').replace(/\s+/g, ' ').trim();
+const cleanName = (s) => String(s ?? '').replace(/[\p{Extended_Pictographic}‍️⃣]/gu, '').replace(/\s+/g, ' ').trim();
+const NAMES = new Map();
+const canon = (s) => { const n = cleanName(s); if (!n) return n; const k = n.toLowerCase(); if (!NAMES.has(k)) NAMES.set(k, n.charAt(0).toUpperCase() + n.slice(1)); return NAMES.get(k); };
 function parseItems(cell, qtyCell) {
   const s = String(cell ?? '').trim(); if (!s) return [];
   const multi = /[\n;|]/.test(s) || (/,/.test(s) && /\d\s*[x×*]\s*\S|\S\s*[x×*]\s*\d/i.test(s));
@@ -411,11 +552,11 @@ function parseItems(cell, qtyCell) {
     else if ((m = p.match(/^(.+?)\s*[x×*]\s*(\d+)$/i))) { n = m[1]; q = +m[2]; }
     else if ((m = p.match(/^(.+?)\s*\((\d+)\)$/))) { n = m[1]; q = +m[2]; }
     else if (!multi && qtyCell != null) { const qq = parseNum(qtyCell); if (qq && qq > 0) q = qq; }
-    n = cleanName(n); if (n) out.push({ name: n, qty: q });
+    n = canon(n); if (n) out.push({ name: n, qty: q });
   });
   return out;
 }
-const platName = (s) => { s = cleanName(s); if (!s) return 'Unknown'; return s.length <= 4 ? s.toUpperCase() : s.replace(/\b\w/g, (c) => c.toUpperCase()); };
+const platName = (s) => { s = cleanName(s); if (!s) return 'Unknown'; return s === s.toLowerCase() ? s.replace(/\b\w/g, (c) => c.toUpperCase()) : s; };
 
 /* ---------- building orders ---------- */
 function buildOrders(rows, map) {
@@ -428,17 +569,24 @@ function buildOrders(rows, map) {
     const oid = map.order ? cleanName(r[map.order]) : '';
     const key = oid || (cust ? cust + '|' + String(r[map.date]) : 'row' + i);
     let g = groups.get(key);
-    if (!g) { g = { id: key, di: dayIndex(dt.y, dt.m, dt.d), h: dt.h, cust, plat: map.platform ? platName(r[map.platform]) : '', amounts: [], items: [] }; groups.set(key, g); }
-    if (map.amount) { const a = parseNum(r[map.amount]); if (a !== null) g.amounts.push(a); }
-    if (map.item) g.items.push(...parseItems(r[map.item], map.qty ? r[map.qty] : null));
+    if (!g) { g = { id: key, di: dayIndex(dt.y, dt.m, dt.d), h: dt.h, mi: dt.mi || 0, cust, plat: map.platform ? platName(r[map.platform]) : '', amounts: [], gross: [], disc: [], items: [], adds: [] }; groups.set(key, g); }
+    const num = (f, arr) => { if (map[f]) { const a = parseNum(r[map[f]]); if (a !== null) arr.push(a); } };
+    num('amount', g.amounts); num('gross', g.gross); num('discount', g.disc);
+    const mod = map.modifier ? cleanName(r[map.modifier]) : '';
+    if (mod) {
+      const price = map.linePrice ? parseNum(r[map.linePrice]) : null;
+      if (price && price > 0) g.adds.push({ name: canon(mod), qty: parseNum(map.qty ? r[map.qty] : 1) || 1, price });
+    } else if (map.item) g.items.push(...parseItems(r[map.item], map.qty ? r[map.qty] : null));
   });
+  const orderVal = (arr) => arr.length > 1 && arr.every((a) => a === arr[0]) ? arr[0] : arr.reduce((a, b) => a + b, 0);
   const orders = [];
   groups.forEach((g) => {
-    let amt = 0;
-    if (g.amounts.length > 1 && g.amounts.every((a) => a === g.amounts[0])) amt = g.amounts[0];
-    else amt = g.amounts.reduce((a, b) => a + b, 0);
     const items = {}; g.items.forEach((it) => items[it.name] = (items[it.name] || 0) + it.qty);
-    orders.push({ id: g.id, di: g.di, h: g.h, cust: g.cust, plat: g.plat, amt, items });
+    const o = { id: g.id, di: g.di, h: g.h, mi: g.mi, cust: g.cust, plat: g.plat, amt: orderVal(g.amounts), items };
+    if (g.gross.length) o.gross = orderVal(g.gross);
+    if (g.disc.length) o.disc = orderVal(g.disc);
+    if (g.adds.length) { o.adds = {}; g.adds.forEach((a) => o.adds[a.name] = (o.adds[a.name] || 0) + a.qty); }
+    orders.push(o);
   });
   orders.sort((a, b) => a.di - b.di || a.h - b.h);
   return { orders, skipped, cancelled };
@@ -449,16 +597,17 @@ const S = { period: 'week', plat: '', orders: [], files: [], raw: null, map: nul
 const STORE = 'eatnshred-dashboard-v1';
 function save() {
   try {
-    const packed = S.orders.map((o) => [o.id, o.di, o.h, o.cust, o.plat, Math.round(o.amt * 100) / 100, Object.entries(o.items)]);
-    const s = JSON.stringify({ v: 1, orders: packed, files: S.files, sample: S.sample, map: S.map, info: S.info });
+    const r2 = (x) => x == null ? null : Math.round(x * 100) / 100;
+    const packed = S.orders.map((o) => [o.id, o.di, o.h, o.cust, o.plat, r2(o.amt), Object.entries(o.items), r2(o.gross), r2(o.disc), o.adds ? Object.entries(o.adds) : null, o.mi || 0]);
+    const s = JSON.stringify({ v: 2, orders: packed, files: S.files, sample: S.sample, map: S.map, info: S.info });
     if (s.length < 4.5e6) localStorage.setItem(STORE, s);
   } catch (e) { /* storage unavailable */ }
 }
 function load() {
   try {
     const s = localStorage.getItem(STORE); if (!s) return false;
-    const d = JSON.parse(s); if (d.v !== 1) return false;
-    S.orders = d.orders.map((a) => ({ id: a[0], di: a[1], h: a[2], cust: a[3], plat: a[4], amt: a[5], items: Object.fromEntries(a[6]) }));
+    const d = JSON.parse(s); if (d.v !== 2) return false;
+    S.orders = d.orders.map((a) => { const o = { id: a[0], di: a[1], h: a[2], cust: a[3], plat: a[4], amt: a[5], items: Object.fromEntries(a[6]), mi: a[10] || 0 }; if (a[7] != null) o.gross = a[7]; if (a[8] != null) o.disc = a[8]; if (a[9]) o.adds = Object.fromEntries(a[9]); return o; });
     S.files = d.files || []; S.sample = !!d.sample; S.map = d.map || null; S.info = d.info || null;
     return S.orders.length > 0;
   } catch (e) { return false; }
@@ -473,9 +622,13 @@ const PERIODS = {
 function compute() {
   const P = PERIODS[S.period];
   const all = S.orders;
-  const end = all.reduce((m, o) => Math.max(m, o.di), -Infinity);
+  const lastDay = all.reduce((m, o) => Math.max(m, o.di), -Infinity);
+  const lastMin = all.filter((o) => o.di === lastDay).reduce((m, o) => Math.max(m, o.h * 60 + (o.mi || 0)), 0);
+  const partial = lastMin < 21 * 60;
+  const end = partial && S.period !== 'day' ? lastDay - 1 : lastDay;
+  const cutoff = partial && S.period === 'day' ? lastMin : null;
   const inPlat = (o) => !S.plat || o.plat === S.plat;
-  const orders = all.filter(inPlat);
+  const orders = all.filter((o) => inPlat(o) && (cutoff === null || o.h * 60 + (o.mi || 0) <= cutoff));
   const hasCust = all.some((o) => o.cust);
   const hasAmt = all.some((o) => o.amt > 0);
   const win = (k) => { const hi = end - k * P.cmp; return [hi - P.len + 1, hi]; };
@@ -491,10 +644,12 @@ function compute() {
 
   function stats(list, w) {
     const rev = list.reduce((a, o) => a + o.amt, 0);
+    const gross = list.reduce((a, o) => a + (o.gross || 0), 0), disc = list.reduce((a, o) => a + (o.disc || 0), 0);
+    const discN = list.filter((o) => o.disc > 0).length;
     const per = new Map(); list.forEach((o) => { if (o.cust) per.set(o.cust, (per.get(o.cust) || 0) + 1); });
     let nw = 0, rt = 0, rep = 0;
     per.forEach((c, k) => { if (first.get(k) >= w[0]) nw++; else rt++; if (c >= 2) rep++; });
-    return { orders: list.length, rev, aov: list.length ? rev / list.length : 0, cust: per.size, nw, rt, rep };
+    return { orders: list.length, rev, aov: list.length ? rev / list.length : 0, cust: per.size, nw, rt, rep, gross, disc, discPct: gross > 0 ? disc / gross * 100 : 0, discN };
   }
   const C = pick(cur), Pv = pick(prev);
   const sc = stats(C, cur), sp = stats(Pv, prev);
@@ -507,8 +662,13 @@ function compute() {
   const qc = qty(C), qp = qty(Pv), oc = withItem(C);
   const top = [...qc.entries()].sort((a, b) => b[1] - a[1]);
   const minPrev = S.period === 'day' ? 3 : S.period === 'week' ? 5 : 10;
-  const falling = [...qp.entries()].filter(([n, p]) => p >= minPrev).map(([n, p]) => ({ n, p, c: qc.get(n) || 0 }))
-    .map((x) => ({ ...x, ch: (x.c - x.p) / x.p * 100 })).filter((x) => x.ch <= -10)
+  const minDrop = S.period === 'day' ? 2 : 5;
+  let fq = qc, fp = qp;
+  if (S.period === 'week') {
+    fq = qty(orders.filter((o) => o.di > end - 28)); fp = qty(orders.filter((o) => o.di > end - 56 && o.di <= end - 28));
+  }
+  const falling = [...fp.entries()].filter(([n, p]) => p >= (S.period === 'week' ? 8 : minPrev)).map(([n, p]) => ({ n, p, c: fq.get(n) || 0 }))
+    .map((x) => ({ ...x, ch: (x.c - x.p) / x.p * 100 })).filter((x) => x.ch <= -10 && x.p - x.c >= minDrop)
     .sort((a, b) => (b.p - b.c) - (a.p - a.c)).slice(0, 4);
 
   const weeks = [];
@@ -559,10 +719,25 @@ function compute() {
   }
 
   const pairs = new Map();
-  C.forEach((o) => { const ns = Object.keys(o.items).sort(); for (let i = 0; i < ns.length; i++) for (let j = i + 1; j < ns.length; j++) { const k = ns[i] + '\u0000' + ns[j]; pairs.set(k, (pairs.get(k) || 0) + 1); } });
+  orders.filter((o) => o.di > end - 28).forEach((o) => { const ns = Object.keys(o.items).sort(); for (let i = 0; i < ns.length; i++) for (let j = i + 1; j < ns.length; j++) { const k = ns[i] + '\u0000' + ns[j]; pairs.set(k, (pairs.get(k) || 0) + 1); } });
   const topPair = [...pairs.entries()].sort((a, b) => b[1] - a[1])[0];
 
-  return { P, end, cur, prev, sc, sp, spark, top, qc, qp, oc, falling, weeks, returnRate, gap, lapsed, firstDish, recentFirstN: recentFirst.length, newByPlat, weak, topPair, hasCust, hasAmt };
+  const hasDisc = all.some((o) => o.gross > 0);
+  const hasAdds = all.some((o) => o.adds);
+  const platRows = [];
+  const allC = all.filter((o) => o.di >= cur[0] && o.di <= cur[1] && (cutoff === null || o.h * 60 + (o.mi || 0) <= cutoff));
+  const allP = all.filter((o) => o.di >= prev[0] && o.di <= prev[1] && (cutoff === null || o.h * 60 + (o.mi || 0) <= cutoff));
+  [...new Set(all.map((o) => o.plat).filter(Boolean))].forEach((p) => {
+    const a = stats(allC.filter((o) => o.plat === p), cur), b = stats(allP.filter((o) => o.plat === p), prev);
+    if (a.orders || b.orders) platRows.push({ p, ...a, prevOrders: b.orders, share: allC.length ? a.orders / allC.length * 100 : 0 });
+  });
+  platRows.sort((x, y) => y.orders - x.orders);
+  const recent = orders.filter((o) => o.di > end - 28);
+  const addCnt = new Map(); let addOrders = 0;
+  recent.forEach((o) => { if (o.adds) { addOrders++; Object.entries(o.adds).forEach(([n, q]) => addCnt.set(n, (addCnt.get(n) || 0) + q)); } });
+  const adds = { share: recent.length ? addOrders / recent.length * 100 : 0, top: [...addCnt.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3), n: recent.length };
+  const recentStats = stats(recent, [end - 27, end]);
+  return { partial, lastDay, lastMin, cutoff, hasDisc, hasAdds, platRows, adds, recentStats, P, end, cur, prev, sc, sp, spark, top, qc, qp, oc, falling, weeks, returnRate, gap, lapsed, firstDish, recentFirstN: recentFirst.length, newByPlat, weak, topPair, hasCust, hasAmt };
 }
 
 /* ---------- rendering ---------- */
@@ -596,8 +771,10 @@ function render() {
   if (S.plat && !plats.includes(S.plat)) S.plat = '';
 
   const M = compute(); const P = M.P;
-  $('when').textContent = S.period === 'day' ? dLabel(M.end, true) : (S.period === 'week' ? 'Week of ' : '') + dLabel(M.cur[0]) + ' – ' + dLabel(M.cur[1], true);
-  $('srcDate').textContent = 'Latest order ' + dLabel(M.end, true);
+  const hhmm = (m) => String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0');
+  $('when').textContent = S.period === 'day' ? dLabel(M.end, true) + (M.cutoff !== null ? ' · up to ' + hhmm(M.cutoff) + ', compared with the same time last week' : '')
+    : (S.period === 'week' ? 'Week of ' : '') + dLabel(M.cur[0]) + ' – ' + dLabel(M.cur[1], true) + (M.partial ? ' · ' + dLabel(M.lastDay) + ' left out until the day is complete' : '');
+  $('srcDate').textContent = 'Latest order ' + dLabel(M.lastDay, true) + ', ' + hhmm(M.lastMin);
 
   const sc = M.sc, sp = M.sp;
   const oc = pctChange(sc.orders, sp.orders);
@@ -610,11 +787,19 @@ function render() {
     k += kpi('Returning', fmt(sc.rt), pctChange(sc.rt, sp.rt), `${100 - share}% of customers`, `<div class="share"><div style="width:${100 - share}%;background:#2E9B6D"></div></div>`);
     const rc = pctChange(sc.rep, sp.rep);
     k += kpi('Ordered 2+ times', fmt(sc.rep), rc, 'customers ' + (S.period === 'day' ? 'today' : S.period === 'week' ? 'this week' : 'this month'), sparkSvg(M.spark.map((s) => s.rep), rc !== null && rc < 0 ? '#D92D20' : '#2E9B6D'));
+  } else {
+    let n = 2;
+    if (M.hasAmt) { n++; k += kpi('Sales', '<small>AED </small>' + fmt(sc.rev), pctChange(sc.rev, sp.rev), `vs AED ${fmt(sp.rev)}`, sparkSvg(M.spark.map((s) => s.rev), '#2E9B6D')); }
+    if (M.hasDisc) {
+      n++;
+      const pts = Math.round(sc.discPct - sp.discPct);
+      const dp = pts === 0 ? '<span class="pill flat">same</span>' : pts > 0 ? `<span class="pill down">▲ ${pts} pts</span>` : `<span class="pill up">▼ ${Math.abs(pts)} pts</span>`;
+      k += `<div class="kpi"><div class="row"><span class="lab">Discounts</span>${dp}</div><div class="val num">${Math.round(sc.discPct)}<small>%</small></div><div class="sub">of menu price · AED ${fmt(sc.disc)} off</div>${sparkSvg(M.spark.map((s) => s.discPct), '#E07800')}</div>`;
+    }
+    $('kpis').className = 'kpis k' + n;
   }
   $('kpis').innerHTML = k;
-  $('kpis').style.gridTemplateColumns = M.hasCust ? '' : 'repeat(2,minmax(0,1fr))';
-  $('noCust').classList.toggle('hidden', M.hasCust);
-  $('customers').classList.toggle('hidden', !M.hasCust);
+  if (M.hasCust) $('kpis').className = 'kpis';
 
   /* most ordered */
   const tc = $('topCard');
@@ -640,14 +825,14 @@ function render() {
     return 'Feature it in this week\'s story';
   };
   const fc = $('fallCard');
-  const cmpLbl = S.period === 'day' ? 'Compared with the same day last week' : S.period === 'week' ? 'Compared with last week' : 'Compared with the previous 30 days';
-  if (!M.falling.length) fc.innerHTML = `<div class="card-h"><h2>Falling items</h2><span>${cmpLbl}</span></div><div class="note">No item dropped more than 10% (items with at least ${S.period === 'day' ? 3 : S.period === 'week' ? 5 : 10} sold before). Nothing to fix here.</div>`;
+  const cmpLbl = S.period === 'day' ? 'Compared with the same day last week' : S.period === 'week' ? 'Last 4 weeks vs the 4 before' : 'Compared with the previous 30 days';
+  if (!M.falling.length) fc.innerHTML = `<div class="card-h"><h2>Falling items</h2><span>${cmpLbl}</span></div><div class="note">No item dropped by more than 10% and at least ${S.period === 'day' ? 2 : 5} orders. Nothing to fix here.</div>`;
   else fc.innerHTML = `<div class="card-h"><h2>Falling items</h2><span>${cmpLbl}</span></div>
     <div class="ftable"><div class="fr head"><span>Item</span><span class="r">Before</span><span class="r">Now</span><span class="r">Change</span><span>What to do</span></div>
     ${M.falling.map((x) => `<div class="fr"><span class="nm">${esc(x.n)}</span><span class="r">${fmt(x.p)}</span><span class="r">${fmt(x.c)}</span><span class="chg">−${Math.abs(Math.round(x.ch))}%</span><span class="mob">${fmt(x.p)} → ${fmt(x.c)} sold</span><span class="act">${esc(action(x))}</span></div>`).join('')}</div>`;
 
   /* customers */
-  if (M.hasCust) renderCustomers(M);
+  if (M.hasCust) renderCustomers(M); else renderPlatforms(M);
   renderSuggestions(M);
   $('insight').innerHTML = insight(M);
   bindTips();
@@ -675,6 +860,28 @@ function renderCustomers(M) {
       <div class="stat${M.lapsed.length ? ' bad' : ''}"><div class="num">${fmt(M.lapsed.length)}</div><div class="l">regulars with no order in 30 days</div></div>
     </div>`;
 }
+function renderPlatforms(M) {
+  const rows = M.platRows;
+  const per = S.period === 'day' ? 'Today' : S.period === 'week' ? 'This week' : 'Last 30 days';
+  if (!rows.length) { $('customers').innerHTML = `<div class="card-h"><h2>By platform</h2><span>${per}</span></div><div class="note">No platform column in this file.</div>`; return; }
+  const mx = Math.max(...rows.map((r) => r.orders), 1);
+  const avgD = M.sc.discPct;
+  $('customers').innerHTML = `<div class="card-h"><h2>By platform</h2><span>${per}</span></div>
+    <div class="ptable">
+      <div class="pr head"><span>Platform</span><span class="r">Orders</span><span class="r">Avg order</span>${M.hasDisc ? '<span class="r">Discount</span>' : ''}</div>
+      ${rows.map((r) => {
+        const ch = pctChange(r.orders, r.prevOrders);
+        const hiD = M.hasDisc && r.discPct >= avgD + 3;
+        return `<div class="pr" data-tip="<b>${esc(r.p)}</b><br>${fmt(r.orders)} orders (${Math.round(r.share)}% of all)<br>Before: ${fmt(r.prevOrders)} orders<br>Sales: AED ${fmt(r.rev)}${M.hasDisc ? '<br>Discounts: AED ' + fmt(r.disc) : ''}">
+          <div style="min-width:0"><div class="nm">${esc(r.p)} <span class="sh">${Math.round(r.share)}%</span></div><div class="bar"><i style="width:${Math.max(2, r.orders / mx * 100).toFixed(1)}%"></i></div></div>
+          <span class="r"><b>${fmt(r.orders)}</b> ${pill(ch)}</span>
+          <span class="r">${r.orders ? 'AED ' + fmt(r.aov) : '–'}</span>
+          ${M.hasDisc ? `<span class="r${hiD ? ' hot' : ''}">${r.orders ? Math.round(r.discPct) + '%' : '–'}</span>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="note" style="margin-top:auto">Grubtech doesn't include customer details for app orders, so new and returning customers can't be counted from this file.</div>`;
+}
 function roundTop(x, y, w, h, r) { r = Math.min(r, h, w / 2); return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`; }
 
 function renderSuggestions(M) {
@@ -690,9 +897,20 @@ function renderSuggestions(M) {
   }
   if (M.topPair && M.topPair[1] >= 3) {
     const [a, b] = M.topPair[0].split('\u0000');
-    grow.push({ t: `Make "${a} + ${b}" a named combo`, b: `They were ordered together ${fmt(M.topPair[1])} times ${periodWord}. A combo with a small saving raises the average order.`, btn: 'Copy offer', act: () => copyText(`${a} + ${b} combo — save AED 10 when you order both.`) });
+    grow.push({ t: `Make "${a} + ${b}" a named combo`, b: `They were ordered together ${fmt(M.topPair[1])} times in the last 4 weeks. A combo with a small saving raises the average order.`, btn: 'Copy offer', act: () => copyText(`${a} + ${b} combo — save AED 10 when you order both.`) });
   }
-  if (M.falling.length && grow.length < 2) {
+  if (!M.hasCust) {
+    if (M.hasDisc) {
+      const big = M.platRows.filter((r) => r.orders >= 10 && r.discPct >= M.sc.discPct + 3).sort((x, y) => y.discPct - x.discPct)[0];
+      if (big) grow.push({ t: `Review the ${big.p} offer`, b: `${Math.round(big.discPct)}% of the menu price goes to discounts there, vs ${Math.round(M.sc.discPct)}% overall, and orders average AED ${fmt(big.aov)}. Test a smaller discount or a minimum order.`, btn: 'Show ' + big.p, act: () => { S.plat = big.p; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
+      else if (M.sc.discPct >= 20) grow.push({ t: `Put a minimum order on your main discount`, b: `Discounts are ${Math.round(M.sc.discPct)}% of the menu price and ${M.sc.orders ? Math.round(M.sc.discN / M.sc.orders * 100) : 0}% of orders use one. A minimum order of about AED ${fmt(Math.ceil(M.sc.aov / 5) * 5 + 10)} turns the discount into a bigger basket.`, btn: 'Copy offer', act: () => copyText(`AED 30 off orders above AED ${fmt(Math.ceil(M.sc.aov / 5) * 5 + 10)}`) });
+    }
+    if (M.hasAdds && M.adds.top.length && M.adds.share < 35) {
+      const top = M.adds.top[0][0];
+      grow.push({ t: 'Offer an add-on with every main', b: `Only ${Math.round(M.adds.share)}% of orders in the last 4 weeks had a paid add-on. "${top}" is the favourite: make it the first option under every main dish.`, btn: 'Copy idea', act: () => copyText(`Add-on idea: show "${top}" first under every main dish, and add a line in the photo caption: "Add ${top.replace(/^add\s+/i, '')} for a full meal".`) });
+    }
+  }
+  if (M.hasCust && M.falling.length && grow.length < 2) {
     const f = M.falling[0];
     grow.push({ t: `Bring back the ${f.n.toLowerCase()}`, b: `Down ${Math.abs(Math.round(f.ch))}% (${fmt(f.p)} → ${fmt(f.c)}). Remind regulars with a story and a limited-time price.`, btn: 'Copy story idea', act: () => copyText(`Story idea: "Missing the ${f.n}?" — show it being plated, add a 48-hour price, link to order.`) });
   }
@@ -703,20 +921,24 @@ function renderSuggestions(M) {
     attract.push({ t: `Lead your ads with the ${M.top[0][0].toLowerCase()}`, b: `It's your best seller ${periodWord}, so it's the safest dish to put in front of new people.`, btn: 'Copy ad idea', act: () => copyText(`Ad idea: our best seller, the ${M.top[0][0]}. Hero shot, one line on protein and calories, and a first-order offer.`) });
   }
   if (M.weak && M.weak.below >= 15) {
-    attract.push({ t: `First-order offer on ${M.weak.day}, ${slotLabel(M.weak.h)}`, b: `Your weakest slot in the last 4 weeks: ${M.weak.below}% fewer orders than a typical ${slotLabel(M.weak.h)}. A new-customer offer here fills idle kitchen time.`, btn: 'Copy offer', act: () => copyText(`${M.weak.day}s ${slotLabel(M.weak.h)} only: 20% off your first order. / كل ${M.weak.day} من ${slotLabel(M.weak.h)}: خصم 20% على أول طلب.`) });
+    attract.push({ t: `${M.hasCust ? 'First-order offer' : 'Run an offer'} on ${M.weak.day}, ${slotLabel(M.weak.h)}`, b: `Your weakest slot in the last 4 weeks: ${M.weak.below}% fewer orders than a typical ${slotLabel(M.weak.h)}. ${M.hasCust ? 'A new-customer offer' : 'A time-limited offer'} here fills idle kitchen time.`, btn: 'Copy offer', act: () => copyText(`${M.weak.day}s ${slotLabel(M.weak.h)} only: 20% off your first order. / كل ${M.weak.day} من ${slotLabel(M.weak.h)}: خصم 20% على أول طلب.`) });
   }
   if (M.hasCust && M.newByPlat.size >= 2) {
     const tot = [...M.newByPlat.values()].reduce((a, b) => a + b, 0);
     const [p, v] = [...M.newByPlat.entries()].sort((a, b) => b[1] - a[1])[0];
     if (tot >= 10 && p) attract.push({ t: `Most new customers come from ${p}`, b: `${Math.round(v / tot * 100)}% of ${periodWord}'s first orders came through ${p}. Put new-customer offers there first.`, btn: 'Filter to ' + p, act: () => { S.plat = p; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); } });
   }
+  if (!M.hasCust && M.falling.length) {
+    const f = M.falling[0];
+    attract.push({ t: `Bring back the ${f.n.toLowerCase()}`, b: `Down ${Math.abs(Math.round(f.ch))}% (${fmt(f.p)} → ${fmt(f.c)}). Remind people with a story and a limited-time price.`, btn: 'Copy story idea', act: () => copyText(`Story idea: "Missing the ${f.n}?" Show it being plated, add a 48-hour price, link to order.`) });
+  }
   const g = grow.slice(0, 2), a = attract.slice(0, 2);
   S.acts = [...g, ...a].map((s) => s.act);
   let i = 0;
   const item = (s, cls) => { const idx = i++; return `<div class="sg"><div class="no ${cls}">${idx + 1}</div><div class="tx"><div class="t">${esc(s.t)}</div><div class="b">${esc(s.b)}</div></div><button type="button" class="btn" data-act="${idx}">${esc(s.btn)}</button></div>`; };
   $('suggestions').innerHTML = `<div class="card-h"><h2>What to do ${S.period === 'day' ? 'today' : 'this week'}</h2><span>Based on your numbers</span></div>
-    ${g.length ? '<div class="sg-group g">Grow current customers</div>' + g.map((s) => item(s, 'g')).join('') : ''}
-    ${a.length ? '<div class="sg-group o">Attract new customers</div>' + a.map((s) => item(s, 'o')).join('') : ''}
+    ${g.length ? `<div class="sg-group g">${M.hasCust ? 'Grow current customers' : 'Increase order value'}</div>` + g.map((s) => item(s, 'g')).join('') : ''}
+    ${a.length ? `<div class="sg-group o">${M.hasCust ? 'Attract new customers' : 'Get more orders'}</div>` + a.map((s) => item(s, 'o')).join('') : ''}
     ${!g.length && !a.length ? '<div class="note">Not enough data for suggestions yet. Upload a few more weeks of orders.</div>' : ''}`;
 }
 
@@ -729,6 +951,7 @@ function insight(M) {
   let b = '';
   const repCh = pctChange(M.sc.rep, M.sp.rep);
   if (M.hasCust && M.lapsed.length >= 20) b = `${repCh !== null && repCh < 0 ? 'Fewer customers ordered twice. ' : ''}Winning back the ${fmt(M.lapsed.length)} lapsed regulars is your biggest quick win.`;
+  else if (!M.hasCust && M.hasDisc && M.sc.discPct >= 15) b = `Discounts took ${Math.round(M.sc.discPct)}% of the menu price (AED ${fmt(M.sc.disc)}).${M.falling.length ? ` Watch the ${esc(M.falling[0].n.toLowerCase())}: down ${Math.abs(Math.round(M.falling[0].ch))}%.` : ''}`;
   else if (M.falling.length) b = `Watch the ${esc(M.falling[0].n.toLowerCase())}: down ${Math.abs(Math.round(M.falling[0].ch))}%.`;
   else if (M.top.length) b = `The ${esc(M.top[0][0].toLowerCase())} is carrying the ${S.period === 'day' ? 'day' : S.period === 'week' ? 'week' : 'month'}.`;
   return `<b>${S.period === 'day' ? 'Today' : S.period === 'week' ? 'This week' : 'This month'} in one line:</b> ${a.charAt(0).toUpperCase() + a.slice(1)}. ${b}`;
@@ -765,7 +988,8 @@ async function handleFiles(list) {
   if (!files.length) { toast('Choose a .csv or .xlsx file'); return; }
   if (typeof XLSX === 'undefined') { toast('The file reader did not load. Check your connection and refresh.'); return; }
   try {
-    const parts = await Promise.all(files.map(readFile));
+    const parts = [];
+    for (const f of files) parts.push(await readFile(f));
     const headers = [...new Set(parts.flatMap((p) => p.headers))];
     const rows = parts.flatMap((p) => p.rows);
     ingest({ headers, rows }, files.map((f) => f.name), false);

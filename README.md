@@ -17,7 +17,9 @@ Everything runs in the browser. Export files are read on your device and are nev
 2. Click **Upload export** and choose the Excel or CSV file. You can select several files at once.
 3. Check the columns under **Uploads**. They are detected automatically; fix any that are wrong and click **Apply columns**.
 
-For the customer numbers, the export needs a column that identifies the customer (phone or customer ID) and ideally 3 months of orders, so first-time customers can be told apart from returning ones.
+**Grubtech:** use Sales → Orders → download, the *order item sales* export. It's recognised automatically, including add-ons and discounts. Password-protected exports open in the browser: enter the export password once and it's remembered on that device.
+
+For the customer numbers, the export needs a column that identifies the customer (phone or customer ID) and ideally 3 months of orders, so first-time customers can be told apart from returning ones. Grubtech's export for app orders has no customer column, so the dashboard shows a platform breakdown instead.
 
 **Try it first:** click **Try with sample data**, or download a sample file from the Uploads section to see the expected format.
 
