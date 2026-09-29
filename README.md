@@ -9,7 +9,21 @@ Sales and customers dashboard for EAT N' SHRED. Upload an orders export from Gru
 
 ## Privacy
 
-Everything runs in the browser. Export files are read on your device and are never uploaded to GitHub or anywhere else. The last upload is remembered on that device only. Never commit export files to this repository (`.gitignore` blocks `.csv` and `.xlsx`).
+This repository is public, so sales data is only ever committed **encrypted**: `data/sales.enc.json` is gzip + AES-256-GCM, with the key derived from the dashboard password (PBKDF2-SHA256, 600,000 rounds). The password is never stored in the repository. The dashboard asks for it once per device, decrypts in the browser, and remembers the key on that device ("Lock this device" under Uploads forgets it).
+
+Files opened with **Upload export** are read on that device only and never leave it. Never commit export files or customer lists (`.gitignore` blocks `.csv` and `.xlsx`).
+
+## Updating the shared data
+
+Send the new Grubtech *order item sales* export (any date range; overlapping ranges are fine) and run:
+
+```
+pip install openpyxl cryptography msoffcrypto-tool
+DASH_PASSWORD='<dashboard password>' python3 tools/build_data.py path/to/export.xlsx --file-password <export password>
+git add data/sales.enc.json && git commit -m "Update sales data" && git push
+```
+
+New orders are merged into the published data; an order that appears again replaces its old copy. `--check` prints what the published file contains, `--replace` rebuilds it from the given files only. Keep the same dashboard password so devices stay unlocked.
 
 ## Using it
 

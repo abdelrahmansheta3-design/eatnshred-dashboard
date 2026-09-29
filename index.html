@@ -239,11 +239,11 @@ select.plat{appearance:none;-webkit-appearance:none;border:1px solid var(--line)
     </header>
 
     <section class="card hidden" id="pwBox" aria-live="polite">
-      <div class="card-h"><h2>This file is password-protected</h2><span id="pwName"></span></div>
-      <div style="font-size:13px;line-height:1.6">Enter the password you set when exporting from Grubtech. It's remembered on this device, so next time the file opens by itself.</div>
+      <div class="card-h"><h2 id="pwTitle">This file is password-protected</h2><span id="pwName"></span></div>
+      <div style="font-size:13px;line-height:1.6" id="pwText"></div>
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
         <label class="sr" for="pwInput">File password</label>
-        <input type="password" id="pwInput" autocomplete="off" placeholder="File password" style="font:inherit;font-size:14px;padding:11px 14px;border:1px solid var(--line-strong);border-radius:10px;min-width:220px;flex:1;max-width:320px">
+        <input type="password" id="pwInput" autocomplete="off" placeholder="Password" style="font:inherit;font-size:14px;padding:11px 14px;border:1px solid var(--line-strong);border-radius:10px;min-width:220px;flex:1;max-width:320px">
         <button type="button" class="btn-primary" id="pwOk">Unlock</button>
         <button type="button" class="btn" id="pwCancel">Cancel</button>
       </div>
@@ -255,6 +255,7 @@ select.plat{appearance:none;-webkit-appearance:none;border:1px solid var(--line)
       <p>Export orders from Grubtech (or Talabat, Deliveroo, Careem) as Excel or CSV, then drop the file here. Three months of orders with a customer phone or ID column gives you the full picture. Your file stays in this browser and is never uploaded anywhere.</p>
       <div class="actions">
         <button type="button" class="btn-primary" id="emptyUpload">Choose file</button>
+        <button type="button" class="btn-primary hidden" id="sharedBtn">Open shared data</button>
         <button type="button" class="btn" id="sampleBtn">Try with sample data</button>
       </div>
     </section>
@@ -279,6 +280,7 @@ select.plat{appearance:none;-webkit-appearance:none;border:1px solid var(--line)
     <section class="card" id="uploads">
       <div class="card-h"><h2>Uploads</h2><span>Files stay on this device</span></div>
       <div class="files" id="files"><div>No file loaded yet.</div></div>
+      <div class="note hidden" id="srcNote"></div>
       <div id="mapWrap" class="hidden" style="display:flex;flex-direction:column;gap:12px">
         <div style="font-size:13px">These are the columns found in your file. Fix any that are wrong, then apply.</div>
         <div class="map" id="map"></div>
@@ -446,10 +448,13 @@ async function decryptOffice(u8, password) {
 }
 const PWKEY = 'eatnshred-file-password';
 const savedPw = () => { try { return localStorage.getItem(PWKEY) || ''; } catch (e) { return ''; } };
-function askPassword(name, wrong) {
+const PW_FILE = { title: 'This file is password-protected', text: 'Enter the password you set when exporting from Grubtech. It\u2019s remembered on this device, so next time the file opens by itself.' };
+function askPassword(name, wrong, opts) {
+  opts = opts || PW_FILE;
   return new Promise((res) => {
     const box = $('pwBox'), inp = $('pwInput'), err = $('pwErr');
-    $('pwName').textContent = name; err.textContent = wrong ? 'That password didn’t work. Try again.' : ''; err.classList.toggle('hidden', !wrong);
+    $('pwName').textContent = name; $('pwTitle').textContent = opts.title; $('pwText').textContent = opts.text;
+    $('empty').classList.add('hidden'); box.scrollIntoView({ block: 'center' }); err.textContent = wrong ? 'That password didn’t work. Try again.' : ''; err.classList.toggle('hidden', !wrong);
     box.classList.remove('hidden'); inp.value = ''; setTimeout(() => inp.focus(), 50);
     const done = (v) => { box.classList.add('hidden'); $('pwOk').onclick = $('pwCancel').onclick = inp.onkeydown = null; res(v); };
     $('pwOk').onclick = () => { if (!inp.value) { err.textContent = 'Enter the password first.'; err.classList.remove('hidden'); return; } done(inp.value); };
@@ -593,13 +598,14 @@ function buildOrders(rows, map) {
 }
 
 /* ---------- state ---------- */
-const S = { period: 'week', plat: '', orders: [], files: [], raw: null, map: null, sample: false, info: null };
+const S = { period: 'week', plat: '', orders: [], files: [], raw: null, map: null, sample: false, info: null, src: '', loading: true, sharedDoc: null };
 const STORE = 'eatnshred-dashboard-v1';
 function save() {
+  if (S.src === 'shared') { try { localStorage.removeItem(STORE); } catch (e) {} return; }
   try {
     const r2 = (x) => x == null ? null : Math.round(x * 100) / 100;
     const packed = S.orders.map((o) => [o.id, o.di, o.h, o.cust, o.plat, r2(o.amt), Object.entries(o.items), r2(o.gross), r2(o.disc), o.adds ? Object.entries(o.adds) : null, o.mi || 0]);
-    const s = JSON.stringify({ v: 2, orders: packed, files: S.files, sample: S.sample, map: S.map, info: S.info });
+    const s = JSON.stringify({ v: 2, src: S.src || 'local', savedAt: Date.now(), orders: packed, files: S.files, sample: S.sample, map: S.map, info: S.info });
     if (s.length < 4.5e6) localStorage.setItem(STORE, s);
   } catch (e) { /* storage unavailable */ }
 }
@@ -608,7 +614,7 @@ function load() {
     const s = localStorage.getItem(STORE); if (!s) return false;
     const d = JSON.parse(s); if (d.v !== 2) return false;
     S.orders = d.orders.map((a) => { const o = { id: a[0], di: a[1], h: a[2], cust: a[3], plat: a[4], amt: a[5], items: Object.fromEntries(a[6]), mi: a[10] || 0 }; if (a[7] != null) o.gross = a[7]; if (a[8] != null) o.disc = a[8]; if (a[9]) o.adds = Object.fromEntries(a[9]); return o; });
-    S.files = d.files || []; S.sample = !!d.sample; S.map = d.map || null; S.info = d.info || null;
+    S.files = d.files || []; S.sample = !!d.sample; S.map = d.map || null; S.info = d.info || null; S.src = d.src || 'local'; S.savedAt = d.savedAt || 0;
     return S.orders.length > 0;
   } catch (e) { return false; }
 }
@@ -757,12 +763,13 @@ const slotLabel = (h) => { const a = fmtHour(h), b = fmtHour((h + 2) % 24); retu
 
 function render() {
   const has = S.orders.length > 0;
-  $('empty').classList.toggle('hidden', has);
+  $('empty').classList.toggle('hidden', has || S.loading);
+  $('sharedBtn').classList.toggle('hidden', !S.sharedDoc);
   $('dash').classList.toggle('hidden', !has);
   const hr = new Date().getHours();
   $('hello').textContent = (hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening') + ', ' + CONFIG.name;
   renderUploads();
-  if (!has) { $('when').textContent = 'Upload an export to begin'; return; }
+  if (!has) { $('when').textContent = S.loading ? 'Loading your data…' : 'Upload an export to begin'; return; }
 
   const plats = [...new Set(S.orders.map((o) => o.plat).filter(Boolean))].sort();
   const sel = $('plat');
@@ -974,7 +981,11 @@ function renderUploads() {
     f.innerHTML = S.files.map((n) => `<div><b style="color:var(--ink);font-weight:600">${esc(n)}</b></div>`).join('') +
       `<div>${fmt(S.orders.length)} orders${inf.from != null ? ' · ' + dLabel(inf.from, true) + ' – ' + dLabel(inf.to, true) : ''}${inf.cancelled ? ' · ' + fmt(inf.cancelled) + ' cancelled orders left out' : ''}${inf.skipped ? ' · ' + fmt(inf.skipped) + ' rows without a readable date skipped' : ''}</div>`;
   }
-  $('srcName').textContent = S.files.length ? (S.files.length === 1 ? S.files[0] : S.files.length + ' files') : 'No data yet';
+  $('srcName').textContent = S.src === 'shared' ? 'Grubtech data (shared)' : S.files.length ? (S.files.length === 1 ? S.files[0] : S.files.length + ' files') : 'No data yet';
+  const note = $('srcNote');
+  if (S.src === 'shared' && S.orders.length) { note.innerHTML = `Shared data, updated ${esc(S.sharedDoc ? S.sharedDoc.updated : '')}. It's encrypted, and this device remembers the password. <a href="#" id="lockBtn">Lock this device</a>`; note.classList.remove('hidden'); }
+  else if (S.src === 'local' && S.sharedDoc && S.orders.length) { note.innerHTML = 'You\u2019re viewing a file opened on this device. <a href="#" id="backShared">Back to shared data</a>'; note.classList.remove('hidden'); }
+  else note.classList.add('hidden');
   $('srcSample').classList.toggle('hidden', !S.sample);
   const mw = $('mapWrap');
   if (!S.raw) { mw.classList.toggle('hidden', !S.orders.length); $('map').innerHTML = S.orders.length ? '<div class="note" style="grid-column:1/-1">To change columns, upload the file again.</div>' : ''; return; }
@@ -992,11 +1003,11 @@ async function handleFiles(list) {
     for (const f of files) parts.push(await readFile(f));
     const headers = [...new Set(parts.flatMap((p) => p.headers))];
     const rows = parts.flatMap((p) => p.rows);
-    ingest({ headers, rows }, files.map((f) => f.name), false);
+    ingest({ headers, rows }, files.map((f) => f.name), false, 'local');
   } catch (e) { toast(e.message); }
 }
-function ingest(raw, names, sample) {
-  S.raw = raw; S.map = detect(raw.headers); S.files = names; S.sample = sample; S.plat = '';
+function ingest(raw, names, sample, src) {
+  S.raw = raw; S.map = detect(raw.headers); S.files = names; S.sample = sample; S.plat = ''; S.src = src || 'local'; S.loading = false;
   apply();
   if (!S.map.date) { toast('No date column found. Pick it under Uploads.'); location.hash = '#uploads'; }
 }
@@ -1069,10 +1080,16 @@ function sampleRows() {
 $('uploadBtn').onclick = () => $('file').click();
 $('emptyUpload').onclick = () => $('file').click();
 $('file').onchange = (e) => { handleFiles(e.target.files); e.target.value = ''; };
-$('sampleBtn').onclick = () => { ingest(sampleRows(), ['Sample export (100 days)'], true); toast('Sample data loaded'); };
+$('sampleBtn').onclick = () => { ingest(sampleRows(), ['Sample export (100 days)'], true, 'local'); toast('Sample data loaded'); };
 $('dlSample').onclick = (e) => { e.preventDefault(); const s = sampleRows(); download('sample-export.csv', toCSV([s.headers, ...s.rows.slice(0, 3000).map((r) => s.headers.map((h) => r[h]))])); };
 $('applyMap').onclick = () => { document.querySelectorAll('#map select').forEach((s) => { if (s.value) S.map[s.dataset.f] = s.value; else delete S.map[s.dataset.f]; }); apply(); toast('Columns applied'); };
-$('clearData').onclick = () => { S.orders = []; S.raw = null; S.files = []; S.map = null; S.info = null; S.sample = false; try { localStorage.removeItem(STORE); } catch (e) {} render(); };
+function resetData() { S.orders = []; S.raw = null; S.files = []; S.map = null; S.info = null; S.sample = false; S.src = ''; try { localStorage.removeItem(STORE); } catch (e) {} }
+$('clearData').onclick = async () => { resetData(); if (S.sharedDoc) { S.loading = true; render(); if (!(await openShared(S.sharedDoc).catch((e) => { toast(e.message); return false; }))) { S.loading = false; render(); } } else render(); };
+$('sharedBtn').onclick = async () => { if (S.sharedDoc && !(await openShared(S.sharedDoc).catch((e) => { toast(e.message); return false; }))) render(); };
+document.addEventListener('click', async (e) => {
+  if (e.target.id === 'lockBtn') { e.preventDefault(); try { localStorage.removeItem(KEYSTORE); localStorage.removeItem(PWKEY); } catch (_) {} resetData(); S.loading = false; render(); toast('This device is locked'); }
+  if (e.target.id === 'backShared') { e.preventDefault(); $('clearData').click(); }
+});
 $('plat').onchange = (e) => { S.plat = e.target.value; render(); };
 document.querySelectorAll('.seg button').forEach((b) => b.onclick = () => { S.period = b.dataset.p; document.querySelectorAll('.seg button').forEach((x) => x.setAttribute('aria-pressed', x === b)); render(); });
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-act]'); if (b && S.acts && S.acts[+b.dataset.act]) S.acts[+b.dataset.act](); });
@@ -1083,8 +1100,55 @@ addEventListener('dragleave', () => { dragN = Math.max(0, dragN - 1); if (!dragN
 addEventListener('dragover', (e) => e.preventDefault());
 addEventListener('drop', (e) => { e.preventDefault(); dragN = 0; $('drop').classList.remove('on'); if (e.dataTransfer?.files?.length) handleFiles(e.dataTransfer.files); });
 
-load();
-render();
+/* ---------- shared (published) data ---------- */
+const DATAURL = 'data/sales.enc.json', KEYSTORE = 'eatnshred-dash-key';
+const PW_DASH = { title: 'Enter the dashboard password', text: 'The sales data is encrypted, so only people with the password can see it. You only need to enter it once on this device.' };
+async function fetchShared() {
+  try { const r = await fetch(DATAURL + '?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return null; const d = await r.json(); return d && d.ct ? d : null; }
+  catch (e) { return null; }
+}
+async function gunzipText(u8) {
+  if (typeof DecompressionStream === 'undefined') throw new Error('This browser is too old to open the shared data. Update it, or upload the export file instead.');
+  return new Response(new Blob([u8]).stream().pipeThrough(new DecompressionStream('gzip'))).text();
+}
+async function openShared(doc) {
+  let wrong = false, cached = null;
+  try { cached = JSON.parse(localStorage.getItem(KEYSTORE) || 'null'); } catch (e) {}
+  if (cached && cached.salt !== doc.salt) cached = null;
+  for (let t = 0; t < 8; t++) {
+    let key, raw = null;
+    if (cached) { key = await crypto.subtle.importKey('raw', b64(cached.k), 'AES-GCM', false, ['decrypt']); }
+    else {
+      const pw = await askPassword('', wrong, PW_DASH);
+      if (pw === null) { S.loading = false; return false; }
+      toast('Opening your data…');
+      const base = await crypto.subtle.importKey('raw', new TextEncoder().encode(pw), 'PBKDF2', false, ['deriveBits']);
+      raw = new Uint8Array(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: b64(doc.salt), iterations: doc.iter }, base, 256));
+      key = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['decrypt']);
+    }
+    let pt;
+    try { pt = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: b64(doc.iv) }, key, b64(doc.ct))); }
+    catch (e) { if (cached) { cached = null; try { localStorage.removeItem(KEYSTORE); } catch (_) {} } else wrong = true; continue; }
+    if (raw) { try { localStorage.setItem(KEYSTORE, JSON.stringify({ salt: doc.salt, k: btoa(String.fromCharCode(...raw)) })); } catch (e) {} }
+    const p = JSON.parse(await gunzipText(pt));
+    const rows = p.rows.map((r) => { const o = {}; p.headers.forEach((h, i) => { o[h] = r[i]; }); return o; });
+    ingest({ headers: p.headers, rows }, ['Grubtech export (shared)'], false, 'shared');
+    return true;
+  }
+  S.loading = false; return false;
+}
+async function init() {
+  const had = load();
+  if (had && S.src === 'local') { S.loading = false; render(); }
+  else render();
+  S.sharedDoc = await fetchShared();
+  const sharedAt = S.sharedDoc ? Date.parse(S.sharedDoc.updated.replace(' ', 'T') + ':00+04:00') || 0 : 0;
+  if (had && S.src === 'local' && !S.sample && (!S.sharedDoc || S.savedAt > sharedAt)) { render(); return; }
+  if (had && S.src === 'local' && S.sharedDoc) resetData();
+  if (S.sharedDoc) { if (!(await openShared(S.sharedDoc).catch((e) => { toast(e.message); S.loading = false; return false; }))) render(); }
+  else { S.loading = false; if (had) S.src = 'local'; render(); }
+}
+init();
 </script>
 </body>
 </html>
