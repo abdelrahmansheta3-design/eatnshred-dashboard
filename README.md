@@ -7,6 +7,13 @@ Sales and customers dashboard for EAT N' SHRED. Upload an orders export from Gru
 - **Customers:** new vs returning over the last 8 weeks, how many new customers come back, and how many regulars stopped ordering.
 - **What to do this week:** suggestions built from your own numbers, to grow current customers and attract new ones (download the lapsed-customer list, copy an offer or ad idea).
 
+## Demo
+
+A read-only demo with generated sample data, for showing the work without real figures:
+`https://abdelrahmansheta3-design.github.io/eatnshred-dashboard/demo/`
+
+It opens without a password, hides uploads and settings, saves nothing on the visitor's device, and adds a "How it works" section.
+
 ## Privacy
 
 This repository is public, so sales data is only ever committed **encrypted**: `data/sales.enc.json` is gzip + AES-256-GCM, with the key derived from the dashboard password (PBKDF2-SHA256, 600,000 rounds). The password is never stored in the repository. The dashboard asks for it once per device, decrypts in the browser, and remembers the key on that device ("Lock this device" under Uploads forgets it).
